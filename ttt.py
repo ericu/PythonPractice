@@ -99,11 +99,9 @@ def nextPlayer(player):
 def checkIfDone(board):
   winner = currentWinner(board)
   if winner != None:
-    printBoard(board)
     print("Player %s won." % showPlayer(winner))
     return True
   if (boardFull(board)):
-    printBoard(board)
     print("Game over, a tie.")
     return True
   return False
@@ -111,14 +109,15 @@ def checkIfDone(board):
 def playAndCheck(board, player, r, c):
   board[r][c] = player
   player = nextPlayer(player)
+  printBoard(board)
   done = checkIfDone(board)
   return (player, board, done)
 
 player = 1
 print("Coordinates are 1-based, with [1,1] top left and [3, 1] top right.")
 done = False
+printBoard(board)
 while not done:
-  printBoard(board)
   inString = input(
     "Enter move coords for player %s as x,y > " % showPlayer(player))
   try:
@@ -138,43 +137,3 @@ while not done:
   if not done:
     (r, c, _) = bestResultAndMove(player, board)
     (player, board, done) = playAndCheck(board, player, r, c)
-
-# There's a bug; it played in a not-bad-but-no-forced-win place when it could
-# have forced a win:
-uranium@Hex:~/projects/PythonPractice$ ./ttt.py
-Coordinates are 1-based, with [1,1] top left and [3, 1] top right.
- --- --- ---
-|   |   |   |
- --- --- ---
-|   |   |   |
- --- --- ---
-|   |   |   |
- --- --- ---
-
-Enter move coords for player X as x,y > 1,1
- --- --- ---
-| X |   |   |
- --- --- ---
-|   | O |   |
- --- --- ---
-|   |   |   |
- --- --- ---
-
-Enter move coords for player X as x,y > 2,1
- --- --- ---
-| X | X | O |
- --- --- ---
-|   | O |   |
- --- --- ---
-|   |   |   |
- --- --- ---
-
-Enter move coords for player X as x,y > 1,3
- --- --- ---
-| X | X | O |
- --- --- ---
-| O | O |   |
- --- --- ---
-| X |   |   |
- --- --- ---
-
