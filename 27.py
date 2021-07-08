@@ -1,14 +1,11 @@
 #!/usr/bin/python3
 import sys
 
-size = 3
-
 def drawHLine(length):
   return (length * " ---") + '\n'
 
 def drawDataLine(dataLine):
   return ''.join(map(lambda d: "| " + mark(d) + " ", dataLine)) + "|\n"
-
 
 def drawBoard(data):
   lineLen = len(data[0])

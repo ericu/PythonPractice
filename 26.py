@@ -1,14 +1,11 @@
 #!/usr/bin/python3
 import sys
 
-size = 3
-
 def horizontalLine(length):
   return (length * " ---") + '\n'
 
 def boardLine(dataLine):
   return ''.join(map(lambda d: "| " + str(d) + " ", dataLine)) + "|\n"
-
 
 def board(data):
   lineLen = len(data[0])
