@@ -2,24 +2,11 @@
 import sys
 from enum import Enum
 
-#To win a game:
-#
-#Assuming the game isn't over, for each legal open move m:
-#  1) Did m win me the game immediately?  [assume only I can win on my move]
-#  2) If not, it's your move on the modified board.  Did-you-win-recursive?
-#    [Could be win/lose/tie.]
-#    If you lose, I pick m and exit reporting it and my victory.
-#    If you tie, I store this as a possible best answer and continue.
-#    If you win, I do nothing.
-#
-#If I found a tie, I return that move and report the tie.
-#If I found no win/tie, I report the loss.
-
 def drawHLine(length):
   return (length * " ---") + '\n'
 
 def drawDataLine(dataLine):
-  return ''.join(map(lambda d: "| " + mark(d) + " ", dataLine)) + "|\n"
+  return ''.join(map(lambda d: "| " + showPlayer(d) + " ", dataLine)) + "|\n"
 
 def drawBoard(data):
   lineLen = len(data[0])
@@ -27,18 +14,21 @@ def drawBoard(data):
     drawHLine(lineLen) +
     ''.join(map(lambda dataLine: drawDataLine(dataLine) + drawHLine(lineLen), data)))
 
+def printBoard(board):
+  print(drawBoard(board))
+
 NO_PLAYER = 0
-def mark(index):
+def showPlayer(index):
   return " XO"[index]
 
-def lineAllSame(line):
+def winningLine(line):
   if line[0] == line[1] and line[1] == line[2] and line[0] != NO_PLAYER:
     return line[0]
   return None
 
-def horizontalMatch(board):
+def horizontalWin(board):
   for i in range(0, 3):
-    who = lineAllSame(board[i])
+    who = winningLine(board[i])
     if who != None:
       return who
   return None
@@ -46,17 +36,17 @@ def horizontalMatch(board):
 def invert(board):
   return [[board[x][y] for x in range(3)] for y in range(3)]
 
-def verticalMatch(board):
-  return horizontalMatch(invert(board))
+def verticalWin(board):
+  return horizontalWin(invert(board))
 
-def diagonalMatch(board):
-  who = lineAllSame([board[i][i] for i in range(3)])
+def diagonalWin(board):
+  who = winningLine([board[i][i] for i in range(3)])
   if who != None:
     return who
-  return lineAllSame([board[2 - i][i] for i in range(3)])
+  return winningLine([board[2 - i][i] for i in range(3)])
 
 def currentWinner(board):
-  for f in [horizontalMatch, verticalMatch, diagonalMatch]:
+  for f in [horizontalWin, verticalWin, diagonalWin]:
     who = f(board)
     if who != None:
       return who
@@ -94,9 +84,6 @@ def bestResultAndMove(player, board):
             bestForPlayer = (row, col, Result.TIE)
   return bestForPlayer
 
-def showBoard(board):
-  print(drawBoard(board))
-
 def boardFull(board):
   for row in board:
     for entry in row:
@@ -112,21 +99,28 @@ def nextPlayer(player):
 def checkIfDone(board):
   winner = currentWinner(board)
   if winner != None:
-    showBoard(board)
-    print("Player %s won." % mark(winner))
+    printBoard(board)
+    print("Player %s won." % showPlayer(winner))
     return True
   if (boardFull(board)):
-    showBoard(board)
+    printBoard(board)
     print("Game over, a tie.")
     return True
   return False
+
+def playAndCheck(board, player, r, c):
+  board[r][c] = player
+  player = nextPlayer(player)
+  done = checkIfDone(board)
+  return (player, board, done)
 
 player = 1
 print("Coordinates are 1-based, with [1,1] top left and [3, 1] top right.")
 done = False
 while not done:
-  showBoard(board)
-  inString = input("Enter move coords for player %s as x,y > " % mark(player))
+  printBoard(board)
+  inString = input(
+    "Enter move coords for player %s as x,y > " % showPlayer(player))
   try:
     [x, y] = map(lambda s: int(s.strip()), inString.split(','))
     cx = y-1
@@ -140,10 +134,47 @@ while not done:
   if board[cx][cy]:
     print("Illegal move--square already occupied.")
     continue
-  board[y-1][x-1] = player
-  done = checkIfDone(board)
+  (player, board, done) = playAndCheck(board, player, cx, cy)
   if not done:
-    computerPlayer = nextPlayer(player)
-    (r, c, _) = bestResultAndMove(computerPlayer, board)
-    board[r][c] = computerPlayer
-    done = checkIfDone(board)
+    (r, c, _) = bestResultAndMove(player, board)
+    (player, board, done) = playAndCheck(board, player, r, c)
+
+# There's a bug; it played in a not-bad-but-no-forced-win place when it could
+# have forced a win:
+uranium@Hex:~/projects/PythonPractice$ ./ttt.py
+Coordinates are 1-based, with [1,1] top left and [3, 1] top right.
+ --- --- ---
+|   |   |   |
+ --- --- ---
+|   |   |   |
+ --- --- ---
+|   |   |   |
+ --- --- ---
+
+Enter move coords for player X as x,y > 1,1
+ --- --- ---
+| X |   |   |
+ --- --- ---
+|   | O |   |
+ --- --- ---
+|   |   |   |
+ --- --- ---
+
+Enter move coords for player X as x,y > 2,1
+ --- --- ---
+| X | X | O |
+ --- --- ---
+|   | O |   |
+ --- --- ---
+|   |   |   |
+ --- --- ---
+
+Enter move coords for player X as x,y > 1,3
+ --- --- ---
+| X | X | O |
+ --- --- ---
+| O | O |   |
+ --- --- ---
+| X |   |   |
+ --- --- ---
+
