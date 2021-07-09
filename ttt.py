@@ -2,6 +2,9 @@
 import sys
 from enum import Enum
 
+NO_PLAYER = 0
+board = [3 * [NO_PLAYER] for i in range(3)]
+
 def drawHLine(length):
   return (length * " ---") + '\n'
 
@@ -17,7 +20,6 @@ def drawBoard(data):
 def printBoard(board):
   print(drawBoard(board))
 
-NO_PLAYER = 0
 def showPlayer(index):
   return " XO"[index]
 
@@ -90,8 +92,6 @@ def boardFull(board):
       if entry == NO_PLAYER:
         return False
   return True
-
-board = [3 * [NO_PLAYER] for i in range(3)]
 
 def nextPlayer(player):
   return 3 - player
