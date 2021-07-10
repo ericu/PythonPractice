@@ -10,7 +10,7 @@ class InputError(Exception):
     self.message = message
 
 Throw = namedtuple('Throw', ('index', 'height'))
-Orbit = namedtuple('Orbit', ('num_balls', 'start_index', 'sequence'))
+Orbit = namedtuple('Orbit', ('ballIds', 'start_index', 'sequence', 'length'))
 # TODO: This will gain more fields for throw+catch location.
 # TODO: How will we account for multiple balls out of phase?  That'll have to be
 # at a level above the segment, in the Orbit.
@@ -48,7 +48,7 @@ class SiteSwap:
   def __init__(self, parsedPattern, num_hands=2):
     self.num_balls = SiteSwap.validate_pattern(parsedPattern)
     self.pattern = parsedPattern
-    self.num_hands = 2
+    self.num_hands = num_hands
 
   def __repr__(self):
     return f'SiteSwap({self.pattern!r})'
@@ -109,9 +109,10 @@ class SiteSwap:
         balls_in_cycle = length / pattern_length
         assert(balls_in_cycle == int(balls_in_cycle))
         balls_in_cycle = int(balls_in_cycle)
+        ballIds = list(range(balls_found, balls_found + balls_in_cycle))
+        orbits.append(Orbit(ballIds, index, sequence, length))
         balls_found += balls_in_cycle
-        orbits.append(Orbit(balls_in_cycle, index, sequence))
-    return (orbits, max_cycle_length)
+    return (self.pattern, orbits, max_cycle_length)
 
 class TestValidatePattern(unittest.TestCase):
   def test_simple_patterns(self):
@@ -166,5 +167,7 @@ if __name__ == '__main__':
     print(SiteSwap([2,8]).analyze())
     print(SiteSwap([4,4,1]).analyze())
     print(SiteSwap([5,6,1]).analyze())
+    print(SiteSwap([5,6,1], num_hands=3).analyze())
     print(SiteSwap([3]).analyze())
+    print(SiteSwap([8], num_hands=3).analyze())
     print(SiteSwap([8]).analyze())
