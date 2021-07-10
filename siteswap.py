@@ -10,9 +10,10 @@ class InputError(Exception):
     self.message = message
 
 Throw = namedtuple('Throw', ('index', 'height'))
+Orbit = namedtuple('Orbit', ('num_balls', 'start_index', 'sequence'))
 
 class SiteSwap:
-  """Class for representing site-swap juggling patterns."""
+  """Class for representing asynchronous site-swap juggling patterns."""
 
   @staticmethod
   def validate_pattern(pattern):
@@ -31,7 +32,7 @@ class SiteSwap:
         raise InputError(f'Pattern {pattern} has a collision.')
       destinations[destination] = True
     assert(all(destinations))
-    return num_balls
+    return int(num_balls)
 
   def from_string(str):
     """Produces a SiteSwap from a comma-separated list of natural numbers."""
@@ -75,19 +76,21 @@ class SiteSwap:
     balls_found = 0
     cycles_found = 0
     max_cycle_length = 0
-    # Skip zeroes.
     throws_seen = set([ind for (ind, height) in enumerate(pattern)
-                       if not height])
+                       if not height]) # skip zeroes
     index = 0
     pattern_length = len(pattern)
+    orbits = []
     while balls_found < self.num_balls:
       assert(index < pattern_length)
       length = 0
+      sequence = []
       cur_index = index
       if cur_index not in throws_seen:
         while not length or cur_index != index:
           throws_seen.add(cur_index)
           height = pattern[cur_index]
+          sequence.append(height)
           assert(height)
           length = length + height
           cur_index = (cur_index + height) % pattern_length
@@ -96,8 +99,11 @@ class SiteSwap:
         cycles_found += 1
         max_cycle_length = max(max_cycle_length, length)
         balls_in_cycle = length / pattern_length
+        assert(balls_in_cycle == int(balls_in_cycle))
+        balls_in_cycle = int(balls_in_cycle)
         balls_found += balls_in_cycle
-    print(f'Found {cycles_found} cycles, max length {max_cycle_length}.')
+        orbits.append(Orbit(balls_in_cycle, index, sequence))
+    return (orbits, max_cycle_length)
 
 class TestValidatePattern(unittest.TestCase):
   def test_simple_patterns(self):
@@ -149,8 +155,8 @@ if __name__ == '__main__':
   if args.unittest:
     unittest.main()
   elif args.test:
-    SiteSwap([2,8]).analyze()
-    SiteSwap([4,4,1]).analyze()
-    SiteSwap([5,6,1]).analyze()
-    SiteSwap([3]).analyze()
-    SiteSwap([8]).analyze()
+    print(SiteSwap([2,8]).analyze())
+    print(SiteSwap([4,4,1]).analyze())
+    print(SiteSwap([5,6,1]).analyze())
+    print(SiteSwap([3]).analyze())
+    print(SiteSwap([8]).analyze())
