@@ -21,9 +21,9 @@ class SiteSwap:
     if not all(map(lambda i: i >= 0, pattern)):
       raise InputError(f'Pattern {pattern} contains negative value(s).')
     length = len(pattern)
-    balls = sum(pattern) / length
-    if int(balls) != balls:
-      raise InputError(f'Pattern {pattern} uses fractional ball count {balls}.')
+    num_balls = sum(pattern) / length
+    if int(num_balls) != num_balls:
+      raise InputError(f'Pattern {pattern} uses fractional balls {num_balls}.')
     destinations = [False] * length
     for index, height in enumerate(pattern):
       destination = (index + height) % length
@@ -31,7 +31,7 @@ class SiteSwap:
         raise InputError(f'Pattern {pattern} has a collision.')
       destinations[destination] = True
     assert(all(destinations))
-    return balls
+    return num_balls
 
   def from_string(str):
     """Produces a SiteSwap from a comma-separated list of natural numbers."""
@@ -39,9 +39,10 @@ class SiteSwap:
     pattern = [int(i) for i in as_strings if len(i)]
     return SiteSwap(pattern)
 
-  def __init__(self, parsedPattern):
-    self.balls = SiteSwap.validate_pattern(parsedPattern)
+  def __init__(self, parsedPattern, num_hands=2):
+    self.num_balls = SiteSwap.validate_pattern(parsedPattern)
     self.pattern = parsedPattern
+    self.num_hands = 2
 
   def __repr__(self):
     return f'SiteSwap({self.pattern!r})'
@@ -64,20 +65,22 @@ class SiteSwap:
     return self.Iterator(self.pattern)
 
   def analyze(self):
-    if len(self.pattern) % 2: # or num_hands, eventually
+    if len(self.pattern) % self.num_hands:
       # This makes sure each ball gets back to its original hand, not just the
-      # starting spot in the numerical pattern.
-      pattern = self.pattern + self.pattern
+      # starting spot in the numerical pattern.  todo: if the overage and
+      # num_hands aren't relatively prime, we can make it somewhat shorter.
+      pattern = self.pattern * self.num_hands
     else:
       pattern = self.pattern
     balls_found = 0
     cycles_found = 0
     max_cycle_length = 0
     # Skip zeroes.
-    throws_seen = set([ind for (ind, height) in enumerate(pattern) if not height])
+    throws_seen = set([ind for (ind, height) in enumerate(pattern)
+                       if not height])
     index = 0
     pattern_length = len(pattern)
-    while balls_found < self.balls:
+    while balls_found < self.num_balls:
       assert(index < pattern_length)
       length = 0
       cur_index = index
@@ -133,8 +136,10 @@ class TestValidatePattern(unittest.TestCase):
 def get_args():
   name = sys.argv[0]
   parser = argparse.ArgumentParser()
-  parser.add_argument("-u", "--unittest", help="run unit tests", action="store_true")
-  parser.add_argument("-t", "--test", help="run current test", action="store_true")
+  parser.add_argument("-u", "--unittest", help="run unit tests",
+                      action="store_true")
+  parser.add_argument("-t", "--test", help="run current test",
+                      action="store_true")
   args, argv = parser.parse_known_args()
   sys.argv[:] = [name] + argv
   return args
