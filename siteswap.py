@@ -50,9 +50,8 @@ class SiteSwap:
   class Iterator:
     """Class for running a pattern forever."""
 
-    def __init__(self, pattern, balls):
+    def __init__(self, pattern):
       self.pattern = pattern
-      self.balls = pattern
       self.next_throw = 0
 
     def __iter__(self):
@@ -68,7 +67,40 @@ class SiteSwap:
       return Throw(index, height)
 
   def iterator(self):
-    return self.Iterator(self.pattern, self.balls)
+    return self.Iterator(self.pattern)
+
+  def analyze(self):
+    if len(self.pattern) % 2: # or num_hands, eventually
+      # This makes sure each ball gets back to its original hand, not just the
+      # starting spot in the numerical pattern.
+      pattern = self.pattern + self.pattern
+    else:
+      pattern = self.pattern
+    balls_found = 0
+    cycles_found = 0
+    max_cycle_length = 0
+    # Skip zeroes.
+    throws_seen = set([ind for (ind, height) in enumerate(pattern) if not height])
+    index = 0
+    pattern_length = len(pattern)
+    while balls_found < self.balls:
+      assert(index < pattern_length)
+      length = 0
+      cur_index = index
+      if cur_index not in throws_seen:
+        while not length or cur_index != index:
+          throws_seen.add(cur_index)
+          height = pattern[cur_index]
+          assert(height)
+          length = length + height
+          cur_index = (cur_index + height) % pattern_length
+      index += 1
+      if length:
+        cycles_found += 1
+        max_cycle_length = max(max_cycle_length, length)
+        balls_in_cycle = length / pattern_length
+        balls_found += balls_in_cycle
+    print(f'Found {cycles_found} cycles, max length {max_cycle_length}.')
 
 class TestValidatePattern(unittest.TestCase):
   def test_simple_patterns(self):
@@ -118,10 +150,8 @@ if __name__ == '__main__':
   if args.unittest:
     unittest.main()
   elif args.test:
-    iterator = SiteSwap([4, 4, 1]).iterator()
-    counter = 0
-    for throw in iterator:
-      counter += 1
-      print(throw)
-      if counter > 5:
-        sys.exit()
+    SiteSwap([2,8]).analyze()
+    SiteSwap([4,4,1]).analyze()
+    SiteSwap([5,6,1]).analyze()
+    SiteSwap([3]).analyze()
+    SiteSwap([8]).analyze()
