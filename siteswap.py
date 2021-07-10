@@ -61,6 +61,10 @@ class TestValidatePattern(unittest.TestCase):
     with self.assertRaises(InputError):
       SiteSwap.validate_pattern([4, 3, 2])
 
+  def test_string_constructor(self):
+    self.assertEqual(repr(SiteSwap([4, 4, 1])),
+                     repr(SiteSwap.from_string("4, 4,1")))
+
 def get_args():
   name = sys.argv[0]
   parser = argparse.ArgumentParser()
