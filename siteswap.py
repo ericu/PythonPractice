@@ -11,6 +11,11 @@ class InputError(Exception):
 
 Throw = namedtuple('Throw', ('index', 'height'))
 Orbit = namedtuple('Orbit', ('num_balls', 'start_index', 'sequence'))
+# TODO: This will gain more fields for throw+catch location.
+# TODO: How will we account for multiple balls out of phase?  That'll have to be
+# at a level above the segment, in the Orbit.
+Segment = namedtuple('Segment',
+                     ('index', 'height', 'throw_hand', 'catch_hand'))
 
 class SiteSwap:
   """Class for representing asynchronous site-swap juggling patterns."""
@@ -87,12 +92,15 @@ class SiteSwap:
       sequence = []
       cur_index = index
       if cur_index not in throws_seen:
+        hand = cur_index % self.num_hands
         while not length or cur_index != index:
           throws_seen.add(cur_index)
           height = pattern[cur_index]
-          sequence.append(height)
+          catch_hand = (hand + height) % self.num_hands
+          sequence.append(Segment(cur_index, height, hand, catch_hand))
           assert(height)
           length = length + height
+          hand = catch_hand
           cur_index = (cur_index + height) % pattern_length
       index += 1
       if length:
