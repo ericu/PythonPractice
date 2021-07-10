@@ -46,7 +46,6 @@ class SiteSwap:
   def __repr__(self):
     return f'SiteSwap({self.pattern!r})'
 
-  # TODO: Is there a way to do this more cleanly with a generator?
   class Iterator:
     """Class for running a pattern forever."""
 
@@ -54,17 +53,12 @@ class SiteSwap:
       self.pattern = pattern
       self.next_throw = 0
 
-    def __iter__(self):
-      return self
-
-    def __next__(self):
-      return self.next()
-
-    def next(self):
-      index = self.next_throw
-      height = self.pattern[index]
-      self.next_throw = (self.next_throw + 1) % len(self.pattern)
-      return Throw(index, height)
+    def iterate(self):
+      while True:
+        index = self.next_throw
+        height = self.pattern[index]
+        self.next_throw = (self.next_throw + 1) % len(self.pattern)
+        yield Throw(index, height)
 
   def iterator(self):
     return self.Iterator(self.pattern)
@@ -126,7 +120,7 @@ class TestValidatePattern(unittest.TestCase):
 
   def test_iterator(self):
     iterator = SiteSwap([4, 4, 1]).iterator()
-    throws1 = take(4, iterator)
+    throws1 = take(4, iterator.iterate())
     self.assertEqual(throws1[0].height, 4)
     self.assertEqual(throws1[0].index, 0)
     self.assertEqual(throws1[1].height, 4)
