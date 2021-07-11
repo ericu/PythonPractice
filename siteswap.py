@@ -2,6 +2,7 @@
 import unittest
 import argparse
 import sys
+import math
 from collections import namedtuple
 from more_itertools import take
 
@@ -11,11 +12,28 @@ class InputError(Exception):
 
 Throw = namedtuple('Throw', ('index', 'height'))
 Orbit = namedtuple('Orbit', ('ballIds', 'start_index', 'sequence', 'length'))
+Analysis = namedtuple('Analysis', ('pattern', 'num_hands', 'orbits', 'max_cycle_length'))
 # TODO: This will gain more fields for throw+catch location.
-# TODO: How will we account for multiple balls out of phase?  That'll have to be
-# at a level above the segment, in the Orbit.
-Segment = namedtuple('Segment',
-                     ('index', 'height', 'throw_hand', 'catch_hand'))
+Segment = namedtuple('Segment', ('index', 'height', 'throw_hand', 'catch_hand'))
+
+
+#TODO: Classes for these, possibly subclasses of some parent.
+Arc = namedtuple('Arc', ('index', 'duration', 'throw_pos', 'catch_pos'))
+Carry = namedtuple('Carry', ('index', 'duration', 'catch_pos', 'throw_pos'))
+
+#TODO: Classes for these, possibly subclasses of some parent?
+CarryEnd = namedtuple('CarryEnd', ('index', 'position'))
+CarryStart = namedtuple('CarryStart', ('index', 'position'))
+
+# TODO: This is a hack to put in default throw/catch locations.  Do better.
+r = 10
+def simple_throw_pos(hand, num_hands):
+  angle = hand / num_hands * 2 * math.pi
+  return (r * cos(angle), r * sin(angle))
+  
+def simple_catch_pos(hand, num_hands):
+  angle = (hand * 0.5) / num_hands * 2 * math.pi
+  return (r * cos(angle), r * sin(angle))
 
 class SiteSwap:
   """Class for representing asynchronous site-swap juggling patterns."""
@@ -102,7 +120,6 @@ class SiteSwap:
           length = length + height
           hand = catch_hand
           cur_index = (cur_index + height) % pattern_length
-      index += 1
       if length:
         cycles_found += 1
         max_cycle_length = max(max_cycle_length, length)
@@ -112,7 +129,79 @@ class SiteSwap:
         ballIds = list(range(balls_found, balls_found + balls_in_cycle))
         orbits.append(Orbit(ballIds, index, sequence, length))
         balls_found += balls_in_cycle
-    return (self.pattern, orbits, max_cycle_length)
+      index += 1
+    # TODO: Return a new object.  The point of this object is to be able to
+    # answer the question, "Where is ball N at time T?"  Possibly we'll move
+    # this all to the constructor, and SiteSwap will be that object, but maybe
+    # not.  It's trivial to pick the Orbit for the ball; we need to find the
+    # right Segment and where in it the ball is.  Perhaps Orbit should be a
+    # class with some smarts.
+    # If an orbit of K balls and length L starts at time T0, and we want ball B
+    # of that orbit [e.g. 2 if it's the third ball in the orbit] at time T1...
+    #   First we need to rotate the orbit by B * L / K, *backwards*, since that
+    #   ball is thrown B * L / K *later* than the starting index.  That's the
+    #   same as adding (L - B * L / K) to the current time.  Then we need
+    #   to move forward by T1 - T0.  Then we need to mod to get back within the
+    #   sequence length by % L.
+    # Simplify:
+    #   * All subtractions are done by adding L - ${value}.
+    #   * Start by subtracting off the start_index of the orbit from T.
+    #   * Then subtract off B * L / K.
+    #   * Then % by L.  Now you just need to find the right segment in the
+    #     orbit: while t > height[i]: t -= height[i++].
+    # NOTE: This assumes throw-carry is part of the throw record.  We may
+    # wish to make separate carry records in between the throw records, so
+    # throw records will generally have N-1 beats and carry records will have 1.
+    # For 1s we'll have to do something special; I'm leaning toward simplifying
+    # by saying that a 1 spends 0.5 beats in the air and then 0.5 beats in the
+    # hand; that lets it not mess with the previous carry, so it can just affect
+    # the usual throw+carry records.  For a true handacross, you'd need to
+    # adjust the carry before the non-throw and the carry before the catch to
+    # include the hand across and special prep for next throw, and you wouldn't
+    # have a throw record at all; you'd still need a special post-throw carry
+    # record, too.
+    # NOTE: We'll also need to answer where a given hand is.  Hands will
+    # generally be controlled by multiple orbits.  We'll have to compute hand
+    # orbits by walking through ball orbits and spitting out hand records; each
+    # time we hit a carry, emit one carry record per ball in the orbit, noting
+    # the offset for that event.
+    return Analysis(self.pattern, self.num_hands, orbits, max_cycle_length)
+
+# TODO: This is completely untested.
+def analysis_to_animation(analysis):
+  _, num_hands, orbits, _ = analysis
+  hands = dict([(hand, []) for hand in range(num_hands))
+  balls = {}
+  #Orbit = namedtuple('Orbit', ('ballIds', 'start_index', 'sequence', 'length'))
+  for orbit in orbits:
+    ballIds, start_index, sequence, length = orbit
+    balls_in_orbit = len(ballIds)
+    assert(int(balls_in_orbit / length) == balls_in_orbit / length)
+    offset_increment = int(balls_in_orbit / length)
+    for ball of ballIds:
+      ball_path = []
+      index = start_index
+      for segment of sequence:
+        _, height, throw_hand, catch_hand = segment
+        #TODO: We're ignoring index in Sequence, since they're based on the
+        # orbit's start_index and are redundant; take them out?
+        # TODO: Deal with 1s.
+        duration = height - 1
+        throw_time = index % length
+        catch_time = (index + duration) % length
+        throw_pos = simple_throw_pos(throw_hand, num_hands)
+        catch_pos = simple_catch_pos(catch_hand, num_hands)
+        ball_path.append(Arc(throw_time, duration, throw_pos, catch_pos))
+        # todo: Add velocity info for splined throws instead of just position.
+        hands[throw_hand].push(CarryEnd(throw_time, throw_pos))
+        hands[catch_hand].push(CarryStart(catch_time, catch_pos))
+        index += height
+      ball_path.sort(key=lambda arc: arc.index)
+      balls[ball] = ball_path
+      start_index += offset_increment
+  # TODO: Construct and sort hand paths.
+  for hand, carry_parts in hands:
+
 
 class TestValidatePattern(unittest.TestCase):
   def test_simple_patterns(self):
