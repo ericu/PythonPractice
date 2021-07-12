@@ -14,7 +14,7 @@ Throw = namedtuple('Throw', ('index', 'height'))
 Orbit = namedtuple('Orbit', ('ballIds', 'start_index', 'sequence', 'length'))
 Analysis = namedtuple('Analysis', ('pattern', 'num_hands', 'orbits', 'max_cycle_length'))
 # todo: this will gain more fields for throw+catch location.
-Segment = namedtuple('Segment', ('index', 'height', 'throw_hand', 'catch_hand'))
+Segment = namedtuple('Segment', ('height', 'throw_hand', 'catch_hand'))
 
 
 #todo: Classes for these, possibly subclasses of some parent.
@@ -27,14 +27,14 @@ CarryStart = namedtuple('CarryStart', ('index', 'position', 'ball'))
 
 # This is a hack to put in default throw/catch locations.
 r = 10
-def simple_throw_pos(hand, num_hands):
+def _simple_throw_pos(hand, num_hands):
   if num_hands == 2:
     return ((hand - 0.5) * r, 0)
   else:
     angle = hand / num_hands * 2 * math.pi
     return (r * math.cos(angle), r * math.sin(angle))
   
-def simple_catch_pos(hand, num_hands):
+def _simple_catch_pos(hand, num_hands):
   if num_hands == 2:
     return ((hand - 0.5) * r * 2, 0)
   else:
@@ -121,7 +121,7 @@ class SiteSwap:
           throws_seen.add(cur_index)
           height = pattern[cur_index]
           catch_hand = (hand + height) % self.num_hands
-          sequence.append(Segment(cur_index, height, hand, catch_hand))
+          sequence.append(Segment(height, hand, catch_hand))
           assert(height)
           length = length + height
           hand = catch_hand
@@ -137,6 +137,9 @@ class SiteSwap:
         balls_found += balls_in_cycle
       index += 1
     return Analysis(self.pattern, self.num_hands, orbits, max_cycle_length)
+
+  def animation(self):
+    return analysis_to_animation(self.analyze())
 
 # The point of this object is to be able to answer the question, "Where is
 # ball/hand N at time T?"  Possibly we'll move this all to the SiteSwap
@@ -154,9 +157,7 @@ def analysis_to_animation(analysis):
       ball_path = []
       index = start_index
       for segment in sequence:
-        #todo: We're ignoring index in Sequence, since they're based on the
-        # orbit's start_index and are redundant; take them out?
-        _, height, throw_hand, catch_hand = segment
+        height, throw_hand, catch_hand = segment
         # We hack 1s here; instead of a true hand-across, which is messy, we
         # have it spend half a beat in the air, followed by a half-beat carry.
         if height == 1:
@@ -165,8 +166,8 @@ def analysis_to_animation(analysis):
           duration = height - 1
         throw_time = index % length
         catch_time = (index + duration) % length
-        throw_pos = simple_throw_pos(throw_hand, num_hands)
-        catch_pos = simple_catch_pos(catch_hand, num_hands)
+        throw_pos = _simple_throw_pos(throw_hand, num_hands)
+        catch_pos = _simple_catch_pos(catch_hand, num_hands)
         ball_path.append(Arc(throw_time, duration, throw_pos, catch_pos))
         # todo: Add velocity info for splined throws instead of just position.
         hands[throw_hand].append(CarryEnd(throw_time, throw_pos, ball))
@@ -229,7 +230,7 @@ class TestValidatePattern(unittest.TestCase):
     self.assertEqual(throws1[3].height, 4)
     self.assertEqual(throws1[3].index, 0)
 
-def get_args():
+def _get_args():
   name = sys.argv[0]
   parser = argparse.ArgumentParser()
   parser.add_argument("-u", "--unittest", help="run unit tests",
@@ -241,7 +242,7 @@ def get_args():
   return args
 
 if __name__ == '__main__':
-  args = get_args()
+  args = _get_args()
   if args.unittest:
     unittest.main()
   elif args.test:
