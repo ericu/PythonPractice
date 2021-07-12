@@ -141,7 +141,6 @@ class SiteSwap:
 # The point of this object is to be able to answer the question, "Where is
 # ball/hand N at time T?"  Possibly we'll move this all to the SiteSwap
 # constructor, but maybe not.
-# TODO: This is completely untested.
 def analysis_to_animation(analysis):
   _, num_hands, orbits, max_cycle_length = analysis
   hands = dict([(hand, []) for hand in range(num_hands)])
@@ -177,8 +176,6 @@ def analysis_to_animation(analysis):
       start_index += offset_increment
   hand_paths = {}
   for hand, carry_parts in hands.items():
-    #TODO: We don't have the ball being carried by the hand.  Add to the ball
-    #paths as we produce the carry paths.
     path = []
     assert(not len(carry_parts) % 2)
     carry_parts.sort(key=lambda p: p.index)
@@ -260,6 +257,7 @@ if __name__ == '__main__':
     analysis = SiteSwap([5,6,1], num_hands=3).analyze()
     print('analysis', analysis)
     print('paths', analysis_to_animation(analysis))
+    # 3 is the only one I've hand-verified; others will wait for animation.
     analysis = SiteSwap([3]).analyze()
     print('analysis', analysis)
     print('paths', analysis_to_animation(analysis))
