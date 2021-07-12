@@ -19,7 +19,7 @@ Segment = namedtuple('Segment', ('index', 'height', 'throw_hand', 'catch_hand'))
 
 #TODO: Classes for these, possibly subclasses of some parent.
 Arc = namedtuple('Arc', ('index', 'duration', 'throw_pos', 'catch_pos'))
-Carry = namedtuple('Carry', ('index', 'duration', 'catch_pos', 'throw_pos'))
+HandMove = namedtuple('HandMove', ('index', 'duration', 'start_pos', 'end_pos'))
 
 #TODO: Classes for these, possibly subclasses of some parent?
 CarryEnd = namedtuple('CarryEnd', ('index', 'position'))
@@ -29,11 +29,11 @@ CarryStart = namedtuple('CarryStart', ('index', 'position'))
 r = 10
 def simple_throw_pos(hand, num_hands):
   angle = hand / num_hands * 2 * math.pi
-  return (r * cos(angle), r * sin(angle))
+  return (r * math.cos(angle), r * math.sin(angle))
   
 def simple_catch_pos(hand, num_hands):
   angle = (hand * 0.5) / num_hands * 2 * math.pi
-  return (r * cos(angle), r * sin(angle))
+  return (r * math.cos(angle), r * math.sin(angle))
 
 class SiteSwap:
   """Class for representing asynchronous site-swap juggling patterns."""
@@ -169,19 +169,18 @@ class SiteSwap:
 
 # TODO: This is completely untested.
 def analysis_to_animation(analysis):
-  _, num_hands, orbits, _ = analysis
-  hands = dict([(hand, []) for hand in range(num_hands))
-  balls = {}
-  #Orbit = namedtuple('Orbit', ('ballIds', 'start_index', 'sequence', 'length'))
+  _, num_hands, orbits, max_cycle_length = analysis
+  hands = dict([(hand, []) for hand in range(num_hands)])
+  ball_paths = {}
   for orbit in orbits:
     ballIds, start_index, sequence, length = orbit
     balls_in_orbit = len(ballIds)
-    assert(int(balls_in_orbit / length) == balls_in_orbit / length)
-    offset_increment = int(balls_in_orbit / length)
-    for ball of ballIds:
+    assert(int(length / balls_in_orbit) == length / balls_in_orbit)
+    offset_increment = int(length / balls_in_orbit)
+    for ball in ballIds:
       ball_path = []
       index = start_index
-      for segment of sequence:
+      for segment in sequence:
         _, height, throw_hand, catch_hand = segment
         #TODO: We're ignoring index in Sequence, since they're based on the
         # orbit's start_index and are redundant; take them out?
@@ -193,15 +192,26 @@ def analysis_to_animation(analysis):
         catch_pos = simple_catch_pos(catch_hand, num_hands)
         ball_path.append(Arc(throw_time, duration, throw_pos, catch_pos))
         # todo: Add velocity info for splined throws instead of just position.
-        hands[throw_hand].push(CarryEnd(throw_time, throw_pos))
-        hands[catch_hand].push(CarryStart(catch_time, catch_pos))
+        hands[throw_hand].append(CarryEnd(throw_time, throw_pos))
+        hands[catch_hand].append(CarryStart(catch_time, catch_pos))
         index += height
       ball_path.sort(key=lambda arc: arc.index)
-      balls[ball] = ball_path
+      ball_paths[ball] = ball_path
       start_index += offset_increment
-  # TODO: Construct and sort hand paths.
-  for hand, carry_parts in hands:
-
+  hand_paths = {}
+  for hand, carry_parts in hands.items():
+    path = []
+    assert(not len(carry_parts) % 2)
+    carry_parts.sort(key=lambda p: p.index)
+    for i in range(len(carry_parts)):
+      start = carry_parts[i]
+      end = carry_parts[(i + 1) % len(carry_parts)]
+      # carry_parts should alternate between begin and end.
+      assert(type(start) != type(end))
+      duration = (end.index - start.index + max_cycle_length) % max_cycle_length
+      path.append(HandMove(start.index, duration, start.position, end.position))
+    hand_paths[hand] = path
+  return (ball_paths, hand_paths)
 
 class TestValidatePattern(unittest.TestCase):
   def test_simple_patterns(self):
@@ -253,10 +263,12 @@ if __name__ == '__main__':
   if args.unittest:
     unittest.main()
   elif args.test:
-    print(SiteSwap([2,8]).analyze())
-    print(SiteSwap([4,4,1]).analyze())
-    print(SiteSwap([5,6,1]).analyze())
-    print(SiteSwap([5,6,1], num_hands=3).analyze())
-    print(SiteSwap([3]).analyze())
-    print(SiteSwap([8], num_hands=3).analyze())
-    print(SiteSwap([8]).analyze())
+    analysis = SiteSwap([2,8]).analyze()
+    print('analysis', analysis)
+    print('paths', analysis_to_animation(analysis))
+#    print(SiteSwap([4,4,1]).analyze())
+#    print(SiteSwap([5,6,1]).analyze())
+#    print(SiteSwap([5,6,1], num_hands=3).analyze())
+#    print(SiteSwap([3]).analyze())
+#    print(SiteSwap([8], num_hands=3).analyze())
+#    print(SiteSwap([8]).analyze())
