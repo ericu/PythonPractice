@@ -46,7 +46,7 @@ class Animation:
     self.ball_paths = ball_paths
     self.hand_paths = hand_paths
     self.cycle_length = cycle_length
-    self.g = -10
+    self.g = -50
 
   def num_balls(self):
     return len(self.ball_paths.keys())
