@@ -56,29 +56,50 @@ CANVAS_CENTER_Y = CANVAS_HEIGHT / 2
 FRAMES_PER_BEAT = 60
 BEATS_PER_SECOND = 2
 
-def draw(animation, time):
+def create_canvas_objects(animation):
+  balls = {}
+  hands = {}
+  for hand in range(animation.num_hands()):
+    hands[hand] = canvas.create_rectangle(-BALL_RADIUS, -BALL_RADIUS,
+                                          BALL_RADIUS, BALL_RADIUS,
+                                          fill='yellow', outline='blue')
+  for ball in range(animation.num_balls()):
+    balls[ball] = canvas.create_rectangle(-HAND_HALF_W, 0, HAND_HALF_W, HAND_H,
+                                          fill='red', outline='purple')
+  return { 'hands': hands, 'balls': balls }
+    
+
+def draw(animation, time, objects):
   for hand in range(num_hands):
     (x, y) = animation.hand_location_at(hand, time)
     x += CANVAS_CENTER_X
     y = CANVAS_CENTER_Y - y
-    canvas.create_rectangle(x - HAND_HALF_W, y, x + HAND_HALF_W, y + HAND_H,
-                            fill='yellow', outline='blue')
+    x0 = x - HAND_HALF_W
+    y0 = y
+    x1 = x + HAND_HALF_W
+    y1 = y + HAND_H
+    canvas.coords(objects['hands'][hand], (x0, y0, x1, y1))
   for ball in range(num_balls):
     (x, y) = animation.ball_location_at(ball, time)
     x += CANVAS_CENTER_X
     y = CANVAS_CENTER_Y - y
-    canvas.create_oval(x - BALL_RADIUS, y - BALL_RADIUS,
-                       x + BALL_RADIUS, y + BALL_RADIUS,
-                       fill='red', outline='purple')
+    x0 = x - BALL_RADIUS
+    y0 = y - BALL_RADIUS
+    x1 = x + BALL_RADIUS
+    y1 = y + BALL_RADIUS
+    canvas.coords(objects['balls'][ball], (x0, y0, x1, y1))
 
 start_time = time.time()
 #start_time_ns = time.time_ns() # Not available until 3.7
+
+canvas_objects = create_canvas_objects(animation)
+
 
 def redraw():
   request_redraw()
   cur_time = time.time()
   dt = BEATS_PER_SECOND * (cur_time - start_time)
-  draw(animation, dt)
+  draw(animation, dt, canvas_objects)
 
 def request_redraw():
   # TODO: This could use a frame counter to figure out how long to wait, in case
