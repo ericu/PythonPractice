@@ -46,7 +46,7 @@ class Arc(Motion):
 
   def location_at(self, time, cycle_length):
     time %= cycle_length
-    time = time if time >= self.index else time + self.cycle_length
+    time = time if time >= self.index else time + cycle_length
     assert time >= self.index and time < self.end_time
     # TODO: Use a vector object for positions.
     sx, sy = self.start_pos
@@ -69,7 +69,7 @@ class HandMove(Motion):
 
   def location_at(self, time, cycle_length):
     time %= cycle_length
-    time = time if time >= self.index else time + self.cycle_length
+    time = time if time >= self.index else time + cycle_length
     assert time >= self.index and time < self.end_time
     # TODO: Use a vector object for positions.
     sx, sy = self.start_pos
