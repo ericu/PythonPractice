@@ -13,14 +13,16 @@ root.title("Test Window")
 frame = ttk.Frame(root, width=200)
 frame.grid(column=0, row=0)
  
-label = ttk.Label(frame, text = "Testing GUI")
-label.grid(column=2, row=0)
+label = ttk.Label(frame, text = "SiteSwap Animator")
+label.grid(column=0, row=0, columnspan=2)
  
-CANVAS_WIDTH = 100
-CANVAS_HEIGHT = 100
+CANVAS_WIDTH = 300
+CANVAS_HEIGHT = 300
 canvas = Canvas(frame, bg="black", height=CANVAS_HEIGHT, width=CANVAS_WIDTH)
-canvas.grid(column=2, row=1)
+canvas.grid(column=0, row=1, columnspan=2)
 
+inputLabel = ttk.Label(frame, text="Input pattern")
+inputLabel.grid(column=0, row=2)
 inputText = StringVar()
 inputEntry = ttk.Entry(frame, width=10, textvariable=inputText)
 inputEntry.grid(column=1, row=2)
@@ -36,18 +38,22 @@ def run_input_pattern():
 
 root.bind("<Return>", lambda x: run_input_pattern())
 
-outputText = StringVar()
-outputDisplay = ttk.Label(frame, textvariable=outputText, width=10)
-outputDisplay.grid(column=3, row=2)
+currentPatternLabel = ttk.Label(frame, text="Running pattern")
+currentPatternLabel.grid(column=0, row=3)
+currentPatternText = StringVar()
+currentPatternDisplay = ttk.Label(frame, textvariable=currentPatternText)
+currentPatternDisplay.grid(column=1, row=3)
+# TODO: Error text will stretch the window out oddly if it's long; adjust
+# centering.
 errorText = StringVar()
 errorDisplay = ttk.Label(frame, textvariable=errorText)
-errorDisplay.grid(column=1, row=3, columnspan=3)
+errorDisplay.grid(column=0, row=4, columnspan=3)
 
 copyButton = ttk.Button(frame, text = "Run", command = run_input_pattern)
-copyButton.grid(column=2, row=2)
+copyButton.grid(column=0, row=5)
  
 exitButton = ttk.Button(frame, text = "Exit", command = sys.exit)
-exitButton.grid(column=2, row=4)
+exitButton.grid(column=1, row=5)
 exitButton.bind('<Enter>', lambda e: exitButton.configure(text='Click me!'))
 exitButton.bind('<Leave>', lambda e: exitButton.configure(text='Exit'))
  
@@ -77,7 +83,7 @@ def create_canvas_objects(animation):
 
 
 def start_animation(ss):
-  outputText.set(','.join(map(str, ss.pattern)))
+  currentPatternText.set(','.join(map(str, ss.pattern)))
   start_time = time.time() # Supposedly lacks resolution on some systems.
   #start_time_ns = time.time_ns() # Not available until 3.7
   animation = ss.animation()
@@ -117,5 +123,5 @@ def start_animation(ss):
   request_redraw()
 
 
-start_animation(SiteSwap([7,5,7,1]))
+start_animation(SiteSwap([10,8,9,5,3,1]))
 root.mainloop()
