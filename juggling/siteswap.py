@@ -105,6 +105,8 @@ def _simple_catch_pos(hand, num_hands):
     angle = (hand * 0.5) / num_hands * 2 * math.pi
     return (r * math.cos(angle), r * math.sin(angle))
 
+# TODO: Scale animation to just fit within a unit box, based on throw height and
+# hand positions.
 class Animation:
   def __init__(self, ball_paths, hand_paths, cycle_length):
     self.ball_paths = ball_paths

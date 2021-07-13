@@ -54,7 +54,7 @@ ANIMATION_BOTTOM = CANVAS_HEIGHT - HAND_H
 
 CANVAS_CENTER_X = CANVAS_WIDTH / 2
 CANVAS_CENTER_Y = CANVAS_HEIGHT / 2
-FRAMES_PER_BEAT = 60
+FRAMES_PER_BEAT = 30
 BEATS_PER_SECOND = 2
 
 def create_canvas_objects(animation):
@@ -63,7 +63,7 @@ def create_canvas_objects(animation):
   for hand in range(animation.num_hands()):
     hands[hand] = canvas.create_rectangle(-BALL_RADIUS, -BALL_RADIUS,
                                           BALL_RADIUS, BALL_RADIUS,
-                                          fill='yellow', outline='blue')
+                                          fill='green', outline='blue')
   for ball in range(animation.num_balls()):
     balls[ball] = canvas.create_rectangle(-HAND_HALF_W, 0, HAND_HALF_W, HAND_H,
                                           fill='red', outline='purple')
