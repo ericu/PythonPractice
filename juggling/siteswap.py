@@ -178,11 +178,6 @@ def analysis_to_animation(analysis):
   _, num_hands, orbits, max_cycle_length = analysis
   hands = dict([(hand, []) for hand in range(num_hands)])
   ball_paths = {}
-  # TODO: There's a bug here, in that ball orbits have different length, but
-  # they all have to contribute to hand orbits.  We need to make all ball orbits
-  # the same length by repeating the shorter orbits.  We must make sure to do
-  # that *after* dealing with multiple balls in an orbit, so every ball in the
-  # orbit gets repeated properly and with the right spacing.
   for orbit in orbits:
     ballIds, start_index, sequence, length = orbit
     balls_in_orbit = len(ballIds)
@@ -201,21 +196,21 @@ def analysis_to_animation(analysis):
           duration = 0.5
         else:
           duration = height - 1
-        throw_time = index % length
-        catch_time = (index + duration) % length
         throw_pos = _simple_throw_pos(throw_hand, num_hands)
         catch_pos = _simple_catch_pos(catch_hand, num_hands)
-        #TODO: This is probably the place to multiply out short sequences.
-        # We'll have to do it for balls + hands both, due to their interactions.
-        for i in range(length / max_cycle_length):
-          # TODO
-        ball_arc = Arc(throw_time, duration, throw_pos, catch_pos)
-        ball_path.append(ball_arc)
-        # todo: Add velocity info for splined throws instead of just position.
-        carry_end = CarryEnd(throw_time, throw_pos, ball)
-        carry_start = CarryStart(catch_time, catch_pos, ball)
-        hands[throw_hand].append(carry_end)
-        hands[catch_hand].append(carry_start)
+        (repeats, remainder) = divmod(max_cycle_length, length)
+        assert(remainder == 0)
+        for i in range(repeats): # clone each segment to fill max_cycle_length
+          clone_offset = i * length
+          throw_time = (index + clone_offset) % max_cycle_length
+          catch_time = (index + duration + clone_offset) % max_cycle_length
+          ball_arc = Arc(throw_time, duration, throw_pos, catch_pos)
+          ball_path.append(ball_arc)
+          # todo: Add velocity info for splined throws instead of just position.
+          carry_end = CarryEnd(throw_time, throw_pos, ball)
+          carry_start = CarryStart(catch_time, catch_pos, ball)
+          hands[throw_hand].append(carry_end)
+          hands[catch_hand].append(carry_start)
         index += height
       ball_paths[ball] = ball_path
       start_index += offset_increment
