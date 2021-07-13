@@ -21,6 +21,66 @@ Segment = namedtuple('Segment', ('height', 'throw_hand', 'catch_hand'))
 Arc = namedtuple('Arc', ('index', 'duration', 'throw_pos', 'catch_pos'))
 HandMove = namedtuple('HandMove', ('index', 'duration', 'start_pos', 'end_pos'))
 
+class Motion:
+  #TODO: Rename index to time?
+  def __init__(self, index, duration, start_pos, end_pos):
+    self.index = index
+    self.duration = duration
+    self.end_time = index + duration
+    self.start_pos = start_pos
+    self.end_pos = end_pos
+
+  def covers(self, time, cycle_length):
+    time %= cycle_length
+    time_to_check = time if time >= self.index else time + cycle_length
+    return time_to_check >= self.index and time_to_check < self.end_time
+
+  def location_at(self, time):
+    raise Error('Unimplemented')
+
+class Arc(Motion):
+  G = -25
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+
+  def location_at(self, time, cycle_length):
+    time %= cycle_length
+    time = time if time >= self.index else time + self.cycle_length
+    assert time >= self.index and time < self.end_time
+    # TODO: Use a vector object for positions.
+    sx, sy = self.start_pos
+    ex, ey = self.end_pos
+    dt = time - self.index
+    fraction = dt / self.duration
+    dx = ex - sx
+    dy = ey - sy
+    x = sx + fraction * dx
+    # Here we need the equation for the parabola.
+    # s = vi t + 0.5 a t^2
+    # s is dy; t is duration; choose G as convenient.
+    vi = (dy - 0.5 * self.G * self.duration * self.duration) / self.duration
+    y = vi * dt + 0.5 * self.G * dt * dt
+    return (x, y)
+
+class HandMove(Motion):
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+
+  def location_at(self, time, cycle_length):
+    time %= cycle_length
+    time = time if time >= self.index else time + self.cycle_length
+    assert time >= self.index and time < self.end_time
+    # TODO: Use a vector object for positions.
+    sx, sy = self.start_pos
+    ex, ey = self.end_pos
+    fraction = (time - self.index) / self.duration
+    dx = ex - sx
+    dy = ey - sy
+    x = sx + fraction * dx
+    y = sy + fraction * dy
+    return (x, y)
+
 #todo: Classes for these, possibly subclasses of some parent?
 CarryEnd = namedtuple('CarryEnd', ('index', 'position', 'ball'))
 CarryStart = namedtuple('CarryStart', ('index', 'position', 'ball'))
@@ -59,49 +119,17 @@ class Animation:
       f'Animation({self.ball_paths!r},{self.hand_paths!r},' +
       f'{self.cycle_length!r})')
 
-  #TODO: Generalize this, by making HandMove and Arc subclasses of a base.
   def hand_location_at(self, hand, time):
-    time %= self.cycle_length
-    path = self.hand_paths[hand]
-    for hand_move in path:
-      index, duration, start_pos, end_pos = hand_move
-      end_time = index + duration
-      time_to_check = time if time >= index else time + self.cycle_length
-      if time_to_check >= index and time_to_check < end_time:
-        # TODO: Use a vector object for positions.
-        sx, sy = start_pos
-        ex, ey = end_pos
-        fraction = (time_to_check - index) / duration
-        dx = ex - sx
-        dy = ey - sy
-        x = sx + fraction * dx
-        y = sy + fraction * dy
-        return (x, y)
+    for move in self.hand_paths[hand]:
+      if move.covers(time, self.cycle_length):
+        return move.location_at(time, self.cycle_length)
     assert False, 'Any time should have a hand location.'
     return (0, 0)
 
   def ball_location_at(self, ball, time):
-    time %= self.cycle_length
-    path = self.ball_paths[ball]
-    for arc in path:
-      index, duration, start_pos, end_pos = arc
-      end_time = index + duration
-      time_to_check = time if time >= index else time + self.cycle_length
-      if time_to_check >= index and time_to_check < end_time:
-        # TODO: Use a vector object for positions.
-        sx, sy = start_pos
-        ex, ey = end_pos
-        dt = time_to_check - index
-        fraction = dt / duration
-        dx = ex - sx
-        dy = ey - sy
-        x = sx + fraction * dx
-        # Here we need the equation for the parabola.
-        # s = vi t + 0.5 a t^2
-        # s is dy; t is duration; choose a as g as -10
-        vi = (dy - 0.5 * self.g * duration * duration) / duration
-        y = vi * dt + 0.5 * self.g * dt * dt
-        return (x, y)
+    for move in self.ball_paths[ball]:
+      if move.covers(time, self.cycle_length):
+        return move.location_at(time, self.cycle_length)
     assert False, 'Any time should have a ball location.'
     return (0, 0)
 
