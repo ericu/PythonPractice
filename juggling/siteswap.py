@@ -42,9 +42,11 @@ def _simple_catch_pos(hand, num_hands):
     return (r * math.cos(angle), r * math.sin(angle))
 
 class Animation:
-  def __init__(self, ball_paths, hand_paths):
+  def __init__(self, ball_paths, hand_paths, cycle_length):
     self.ball_paths = ball_paths
     self.hand_paths = hand_paths
+    self.cycle_length = cycle_length
+    self.g = -10
 
   def num_balls(self):
     return len(self.ball_paths.keys())
@@ -53,23 +55,55 @@ class Animation:
     return len(self.hand_paths.keys())
 
   def __repr__(self):
-    return f'Animation({self.ball_paths!r},{self.hand_paths!r})'
+    return (
+      f'Animation({self.ball_paths!r},{self.hand_paths!r},' +
+      f'{self.cycle_length!r})')
 
-'''
-  #TODO: Method to get the locations of objects at a given time.
-  # Generalize this, by making HandMove and Arc subclasses of a base.
-  def hand_location_at(hand, time):
+  #TODO: Generalize this, by making HandMove and Arc subclasses of a base.
+  def hand_location_at(self, hand, time):
+    time %= self.cycle_length
     path = self.hand_paths[hand]
     for hand_move in path:
       index, duration, start_pos, end_pos = hand_move
       end_time = index + duration
-      if time >= index && time < end_time:
+      time_to_check = time if time >= index else time + self.cycle_length
+      if time_to_check >= index and time_to_check < end_time:
         # TODO: Use a vector object for positions.
         sx, sy = start_pos
         ex, ey = end_pos
-        fraction = (time - index) / duration
-        '''
+        fraction = (time_to_check - index) / duration
+        dx = ex - sx
+        dy = ey - sy
+        x = sx + fraction * dx
+        y = sy + fraction * dy
+        return (x, y)
+    assert False, 'Any time should have a hand location.'
+    return (0, 0)
 
+  def ball_location_at(self, ball, time):
+    time %= self.cycle_length
+    path = self.ball_paths[ball]
+    for arc in path:
+      index, duration, start_pos, end_pos = arc
+      end_time = index + duration
+      time_to_check = time if time >= index else time + self.cycle_length
+      if time_to_check >= index and time_to_check < end_time:
+        # TODO: Use a vector object for positions.
+        sx, sy = start_pos
+        ex, ey = end_pos
+        dt = time_to_check - index
+        fraction = dt / duration
+        dx = ex - sx
+        dy = ey - sy
+        x = sx + fraction * dx
+        # Here we need the equation for the parabola.
+        # s = vi t + 0.5 a t^2
+        # s is dy; t is duration; choose a as g as -10
+        vi = (dy - 0.5 * self.g * duration * duration) / duration
+        y = vi * dt + 0.5 * self.g * dt * dt
+        return (x, y)
+    assert False, 'Any time should have a ball location.'
+    return (0, 0)
 
 class SiteSwap:
   """Class for representing asynchronous site-swap juggling patterns."""
@@ -233,7 +267,7 @@ def analysis_to_animation(analysis):
     hand_paths[hand] = path
   for ball_path in ball_paths.values():
     ball_path.sort(key=lambda arc: arc.index)
-  return Animation(ball_paths, hand_paths)
+  return Animation(ball_paths, hand_paths, max_cycle_length)
 
 class TestValidatePattern(unittest.TestCase):
   def test_simple_patterns(self):
