@@ -144,6 +144,8 @@ class SiteSwap:
 
   @staticmethod
   def validate_pattern(pattern):
+    if not len(pattern):
+      raise InputError(f'Pattern has no throws.')
     if not all(map(lambda i: isinstance(i, int), pattern)):
       raise InputError(f'Pattern {pattern} contains non-integer value(s).')
     if not all(map(lambda i: i >= 0, pattern)):
@@ -163,8 +165,12 @@ class SiteSwap:
 
   def from_string(str):
     """Produces a SiteSwap from a comma-separated list of natural numbers."""
+    # todo: Would be nice to split on comma *or* whitespace.
     as_strings = [s.strip() for s in str.split(",")]
-    pattern = [int(i) for i in as_strings if len(i)]
+    try:
+      pattern = [int(i) for i in as_strings if len(i)]
+    except ValueError as error:
+      raise InputError(error)
     return SiteSwap(pattern)
 
   def __init__(self, parsedPattern, num_hands=2):
