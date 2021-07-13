@@ -43,13 +43,14 @@ exitButton.grid(column=1, row=3)
 exitButton.bind('<Enter>', lambda e: exitButton.configure(text='Click me!'))
 exitButton.bind('<Leave>', lambda e: exitButton.configure(text='Exit'))
  
-animation = siteswap.SiteSwap([3]).animation()
+animation = siteswap.SiteSwap([4,5,3]).animation()
 num_balls = animation.num_balls()
 num_hands = animation.num_hands()
 
 BALL_RADIUS = 3
 HAND_HALF_W = 6
 HAND_H = 4
+ANIMATION_BOTTOM = CANVAS_HEIGHT - HAND_H
 
 CANVAS_CENTER_X = CANVAS_WIDTH / 2
 CANVAS_CENTER_Y = CANVAS_HEIGHT / 2
@@ -73,7 +74,7 @@ def draw(animation, time, objects):
   for hand in range(num_hands):
     (x, y) = animation.hand_location_at(hand, time)
     x += CANVAS_CENTER_X
-    y = CANVAS_CENTER_Y - y
+    y = ANIMATION_BOTTOM - y
     x0 = x - HAND_HALF_W
     y0 = y
     x1 = x + HAND_HALF_W
@@ -82,7 +83,7 @@ def draw(animation, time, objects):
   for ball in range(num_balls):
     (x, y) = animation.ball_location_at(ball, time)
     x += CANVAS_CENTER_X
-    y = CANVAS_CENTER_Y - y
+    y = ANIMATION_BOTTOM - y
     x0 = x - BALL_RADIUS
     y0 = y - BALL_RADIUS
     x1 = x + BALL_RADIUS

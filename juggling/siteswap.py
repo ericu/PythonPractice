@@ -26,7 +26,7 @@ CarryEnd = namedtuple('CarryEnd', ('index', 'position', 'ball'))
 CarryStart = namedtuple('CarryStart', ('index', 'position', 'ball'))
 
 # This is a hack to put in default throw/catch locations.
-r = 10
+r = 30
 def _simple_throw_pos(hand, num_hands):
   if num_hands == 2:
     return ((hand - 0.5) * r, 0)
@@ -46,7 +46,7 @@ class Animation:
     self.ball_paths = ball_paths
     self.hand_paths = hand_paths
     self.cycle_length = cycle_length
-    self.g = -50
+    self.g = -25
 
   def num_balls(self):
     return len(self.ball_paths.keys())
