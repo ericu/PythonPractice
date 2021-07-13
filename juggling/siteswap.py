@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 import unittest
 import argparse
-import sys
+from functools import reduce
 import math
+import sys
 from collections import namedtuple
 from more_itertools import take
 
@@ -12,7 +13,7 @@ class InputError(Exception):
 
 Throw = namedtuple('Throw', ('index', 'height'))
 Orbit = namedtuple('Orbit', ('ballIds', 'start_index', 'sequence', 'length'))
-Analysis = namedtuple('Analysis', ('pattern', 'num_hands', 'orbits', 'max_cycle_length'))
+Analysis = namedtuple('Analysis', ('pattern', 'num_hands', 'orbits', 'cycle_length'))
 # todo: this will gain more fields for throw+catch location.
 Segment = namedtuple('Segment', ('height', 'throw_hand', 'catch_hand'))
 
@@ -20,6 +21,9 @@ Segment = namedtuple('Segment', ('height', 'throw_hand', 'catch_hand'))
 #todo: Classes for these, possibly subclasses of some parent.
 Arc = namedtuple('Arc', ('index', 'duration', 'throw_pos', 'catch_pos'))
 HandMove = namedtuple('HandMove', ('index', 'duration', 'start_pos', 'end_pos'))
+
+def lcm(numbers):
+  return reduce(lambda a, b: a * b // math.gcd(a, b), numbers)
 
 class Motion:
   #TODO: Rename index to time?
@@ -196,7 +200,7 @@ class SiteSwap:
       pattern = self.pattern
     balls_found = 0
     cycles_found = 0
-    max_cycle_length = 0
+    cycle_lengths = []
     throws_seen = set([ind for (ind, height) in enumerate(pattern)
                        if not height]) # skip zeroes
     index = 0
@@ -220,7 +224,7 @@ class SiteSwap:
           cur_index = (cur_index + height) % pattern_length
       if length:
         cycles_found += 1
-        max_cycle_length = max(max_cycle_length, length)
+        cycle_lengths.append(length)
         balls_in_cycle = length / pattern_length
         assert(balls_in_cycle == int(balls_in_cycle))
         balls_in_cycle = int(balls_in_cycle)
@@ -228,7 +232,7 @@ class SiteSwap:
         orbits.append(Orbit(ballIds, index, sequence, length))
         balls_found += balls_in_cycle
       index += 1
-    return Analysis(self.pattern, self.num_hands, orbits, max_cycle_length)
+    return Analysis(self.pattern, self.num_hands, orbits, lcm(cycle_lengths))
 
   def animation(self):
     return analysis_to_animation(self.analyze())
@@ -237,7 +241,7 @@ class SiteSwap:
 # ball/hand N at time T?"  Possibly we'll move this all to the SiteSwap
 # constructor, but maybe not.
 def analysis_to_animation(analysis):
-  _, num_hands, orbits, max_cycle_length = analysis
+  _, num_hands, orbits, cycle_length = analysis
   hands = dict([(hand, []) for hand in range(num_hands)])
   ball_paths = {}
   for orbit in orbits:
@@ -260,12 +264,12 @@ def analysis_to_animation(analysis):
           duration = height - 1
         throw_pos = _simple_throw_pos(throw_hand, num_hands)
         catch_pos = _simple_catch_pos(catch_hand, num_hands)
-        (repeats, remainder) = divmod(max_cycle_length, length)
+        (repeats, remainder) = divmod(cycle_length, length)
         assert(remainder == 0)
-        for i in range(repeats): # clone each segment to fill max_cycle_length
+        for i in range(repeats): # clone each segment to fill cycle_length
           clone_offset = i * length
-          throw_time = (index + clone_offset) % max_cycle_length
-          catch_time = (index + duration + clone_offset) % max_cycle_length
+          throw_time = (index + clone_offset) % cycle_length
+          catch_time = (index + duration + clone_offset) % cycle_length
           ball_arc = Arc(throw_time, duration, throw_pos, catch_pos)
           ball_path.append(ball_arc)
           # todo: Add velocity info for splined throws instead of just position.
@@ -286,7 +290,7 @@ def analysis_to_animation(analysis):
       end = carry_parts[(i + 1) % len(carry_parts)]
       # carry_parts should alternate between begin and end.
       assert(type(start) != type(end))
-      duration = (end.index - start.index + max_cycle_length) % max_cycle_length
+      duration = (end.index - start.index + cycle_length) % cycle_length
       move = HandMove(start.index, duration, start.position, end.position)
       path.append(move)
       if type(start) == CarryStart:
@@ -295,7 +299,7 @@ def analysis_to_animation(analysis):
     hand_paths[hand] = path
   for ball_path in ball_paths.values():
     ball_path.sort(key=lambda arc: arc.index)
-  return Animation(ball_paths, hand_paths, max_cycle_length)
+  return Animation(ball_paths, hand_paths, cycle_length)
 
 class TestValidatePattern(unittest.TestCase):
   def test_simple_patterns(self):

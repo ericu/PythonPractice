@@ -43,7 +43,7 @@ exitButton.grid(column=1, row=3)
 exitButton.bind('<Enter>', lambda e: exitButton.configure(text='Click me!'))
 exitButton.bind('<Leave>', lambda e: exitButton.configure(text='Exit'))
  
-animation = siteswap.SiteSwap([4,5,3]).animation()
+animation = siteswap.SiteSwap([7,5,7,1]).animation()
 num_balls = animation.num_balls()
 num_hands = animation.num_hands()
 
@@ -90,11 +90,9 @@ def draw(animation, time, objects):
     y1 = y + BALL_RADIUS
     canvas.coords(objects['balls'][ball], (x0, y0, x1, y1))
 
-start_time = time.time()
+start_time = time.time() # Supposedly lacks resolution on some systems.
 #start_time_ns = time.time_ns() # Not available until 3.7
-
 canvas_objects = create_canvas_objects(animation)
-
 
 def redraw():
   request_redraw()
