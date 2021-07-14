@@ -80,17 +80,25 @@ current_pattern_label.grid(column=0, row=4)
 current_pattern_text = StringVar()
 current_pattern_display = ttk.Label(frame, textvariable=current_pattern_text)
 current_pattern_display.grid(column=1, row=4)
+
+speed_slider_label = ttk.Label(frame, text="Animation speed")
+speed_slider_label.grid(column=0, row=5)
+beats_per_second_var = DoubleVar(value=3)
+speed_slider = ttk.Scale(frame, orient=HORIZONTAL, length=100, from_=0.5, to=5,
+                         variable=beats_per_second_var)
+speed_slider.grid(column=1, row=5, columnspan=2)
+
 # TODO: Error text will stretch the window out oddly if it's long; adjust
 # centering.
 error_text = StringVar()
 error_display = ttk.Label(frame, textvariable=error_text)
-error_display.grid(column=0, row=5, columnspan=3)
+error_display.grid(column=0, row=6, columnspan=3)
 
 run_button = ttk.Button(frame, text = "Run", command = run_input_pattern)
-run_button.grid(column=0, row=6)
+run_button.grid(column=0, row=7)
  
 exit_button = ttk.Button(frame, text = "Exit", command = sys.exit)
-exit_button.grid(column=1, row=6)
+exit_button.grid(column=1, row=7)
 exit_button.bind('<Enter>', lambda e: exit_button.configure(text='Click me!'))
 exit_button.bind('<Leave>', lambda e: exit_button.configure(text='Exit'))
  
@@ -101,8 +109,7 @@ ANIMATION_BOTTOM = CANVAS_HEIGHT - HAND_H
 
 CANVAS_CENTER_X = CANVAS_WIDTH / 2
 CANVAS_CENTER_Y = CANVAS_HEIGHT / 2
-FRAMES_PER_BEAT = 30
-BEATS_PER_SECOND = 2
+FRAMES_PER_SECOND = 60
 
 def create_canvas_objects(animation):
   canvas.delete("all")
@@ -129,13 +136,13 @@ def start_animation(ss):
   def redraw():
     request_redraw()
     cur_time = time.time()
-    dt = BEATS_PER_SECOND * (cur_time - start_time)
+    dt = beats_per_second_var.get() * (cur_time - start_time)
     draw(animation, dt, canvas_objects)
 
   def request_redraw():
     # todo: This could use a frame counter to figure out how long to wait, in
     # case we're drifting behind.
-    root.after(int(1000 / BEATS_PER_SECOND / FRAMES_PER_BEAT), redraw)
+    root.after(int(1000 / FRAMES_PER_SECOND), redraw)
 
   def draw(animation, time, objects):
     for hand in range(animation.num_hands()):

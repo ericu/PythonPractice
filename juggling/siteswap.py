@@ -90,7 +90,7 @@ CarryEnd = namedtuple('CarryEnd', ('index', 'position', 'ball'))
 CarryStart = namedtuple('CarryStart', ('index', 'position', 'ball'))
 
 # This is a hack to put in default throw/catch locations.
-r = 30
+r = 75
 def _simple_throw_pos(hand, num_hands):
   if num_hands == 2:
     return ((hand - 0.5) * r, r * 0.2)
