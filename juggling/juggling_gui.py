@@ -27,7 +27,7 @@ list_frame.grid(column=1, row=2, sticky=(N,S,E,W))
 list_label = ttk.Label(frame, text="Choose pattern")
 list_label.grid(column=0, row=2)
 
-pattern_set = set(["4,4,1", "3", "6", "9", "5,6,1", "7,5,7,1", "10,8,9,5,3,1"])
+pattern_set = set(["4, 4, 1", "3", "6", "9", "5, 6, 1", "7, 5, 7, 1", "10, 8, 9, 5, 3, 1"])
 list_choices = list(pattern_set)
 list_choices.sort()
 list_choices_var = StringVar(value=list_choices)
@@ -47,7 +47,7 @@ listbox['yscrollcommand'] = scrollbar.set
 
 canvas.grid(column=0, row=1, columnspan=2)
 
-input_label = ttk.Label(frame, text="Input pattern")
+input_label = ttk.Label(frame, text="Or input pattern")
 input_label.grid(column=0, row=3)
 input_text = StringVar()
 input_entry = ttk.Entry(frame, width=10, textvariable=input_text)

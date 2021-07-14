@@ -93,7 +93,7 @@ CarryStart = namedtuple('CarryStart', ('index', 'position', 'ball'))
 r = 30
 def _simple_throw_pos(hand, num_hands):
   if num_hands == 2:
-    return ((hand - 0.5) * r, 0)
+    return ((hand - 0.5) * r, r * 0.2)
   else:
     angle = hand / num_hands * 2 * math.pi
     return (r * math.cos(angle), r * math.sin(angle))
@@ -179,7 +179,7 @@ class SiteSwap:
     return SiteSwap(pattern)
 
   def pattern_string(self):
-    return ','.join(map(str, self.pattern))
+    return ', '.join(map(str, self.pattern))
 
   def __init__(self, parsedPattern, num_hands=2):
     self.num_balls = SiteSwap.validate_pattern(parsedPattern)
