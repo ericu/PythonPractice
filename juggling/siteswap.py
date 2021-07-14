@@ -105,6 +105,11 @@ def _simple_catch_pos(hand, num_hands):
     angle = (hand * 0.5) / num_hands * 2 * math.pi
     return (r * math.cos(angle), r * math.sin(angle))
 
+def _simple_handoff_pos(from_hand, to_hand, num_hands):
+  (x0, y0) = _simple_throw_pos(from_hand, num_hands)
+  (x1, y1) = _simple_throw_pos(to_hand, num_hands)
+  return ((x0 + x1) / 2, (y0 + y1) / 2)
+
 # TODO: Scale animation to just fit within a unit box, based on throw height and
 # hand positions.
 class Animation:
@@ -265,24 +270,22 @@ def analysis_to_animation(analysis):
       index = start_index
       for segment in sequence:
         height, throw_hand, catch_hand = segment
-        # We hack 1s here; instead of a true hand-across, which is messy, we
-        # have it spend half a beat in the air, followed by a half-beat carry.
-        # This is likely not correct, but it'll be easier to debug with
-        # visualization.
-        if height == 1:
-          duration = 0.5
-        else:
-          duration = height - 1
-        throw_pos = _simple_throw_pos(throw_hand, num_hands)
-        catch_pos = _simple_catch_pos(catch_hand, num_hands)
+        duration = height - 1
+        if duration:
+          throw_pos = _simple_throw_pos(throw_hand, num_hands)
+          catch_pos = _simple_catch_pos(catch_hand, num_hands)
+        else: # It's a 1.
+          throw_pos = _simple_handoff_pos(throw_hand, catch_hand, num_hands)
+          catch_pos = throw_pos
         (repeats, remainder) = divmod(cycle_length, length)
         assert(remainder == 0)
         for i in range(repeats): # clone each segment to fill cycle_length
           clone_offset = i * length
           throw_time = (index + clone_offset) % cycle_length
           catch_time = (index + duration + clone_offset) % cycle_length
-          ball_arc = Arc(throw_time, duration, throw_pos, catch_pos)
-          ball_path.append(ball_arc)
+          if duration:
+            ball_arc = Arc(throw_time, duration, throw_pos, catch_pos)
+            ball_path.append(ball_arc)
           # todo: Add velocity info for splined throws instead of just position.
           carry_end = CarryEnd(throw_time, throw_pos, ball)
           carry_start = CarryStart(catch_time, catch_pos, ball)
