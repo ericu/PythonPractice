@@ -17,11 +17,6 @@ Analysis = namedtuple('Analysis', ('pattern', 'num_hands', 'orbits', 'cycle_leng
 # todo: this will gain more fields for throw+catch location.
 Segment = namedtuple('Segment', ('height', 'throw_hand', 'catch_hand'))
 
-
-#todo: Classes for these, possibly subclasses of some parent.
-Arc = namedtuple('Arc', ('index', 'duration', 'throw_pos', 'catch_pos'))
-HandMove = namedtuple('HandMove', ('index', 'duration', 'start_pos', 'end_pos'))
-
 def lcm(numbers):
   return reduce(lambda a, b: a * b // math.gcd(a, b), numbers)
 
@@ -63,6 +58,7 @@ class Arc(Motion):
     # Here we need the equation for the parabola.
     # s = vi t + 0.5 a t^2
     # s is dy; t is duration; choose G as convenient.
+    # TODO: Something's wrong here; balls don't hit hands quite right.
     vi = (dy - 0.5 * self.G * self.duration * self.duration) / self.duration
     y = vi * dt + 0.5 * self.G * dt * dt
     return (x, y)
