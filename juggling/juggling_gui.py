@@ -21,41 +21,68 @@ CANVAS_HEIGHT = 300
 canvas = Canvas(frame, bg="black", height=CANVAS_HEIGHT, width=CANVAS_WIDTH)
 canvas.grid(column=0, row=1, columnspan=2)
 
-inputLabel = ttk.Label(frame, text="Input pattern")
-inputLabel.grid(column=0, row=2)
-inputText = StringVar()
-inputEntry = ttk.Entry(frame, width=10, textvariable=inputText)
-inputEntry.grid(column=1, row=2)
-inputEntry.focus()
+pattern_set = set(["4,4,1", "3", "6", "9", "5,6,1", "7,5,7,1", "10,8,9,5,3,1"])
+list_choices = list(pattern_set)
+list_choices.sort()
+list_choices_var = StringVar(value=list_choices)
+listbox = Listbox(frame, height=4, listvariable=list_choices_var)
+listbox.grid(column=1, row=2)
+def on_select_pattern(_):
+  indices = listbox.curselection()
+  if indices:
+    (index,) = indices
+    text = listbox.get(index)
+    run_pattern(text)
+
+listbox.bind("<<ListboxSelect>>", on_select_pattern)
+
+canvas.grid(column=0, row=1, columnspan=2)
+
+input_label = ttk.Label(frame, text="Input pattern")
+input_label.grid(column=0, row=3)
+input_text = StringVar()
+input_entry = ttk.Entry(frame, width=10, textvariable=input_text)
+input_entry.grid(column=1, row=3)
+input_entry.focus()
+
+def run_pattern(text):
+  try:
+    ss = SiteSwap.from_string(text)
+    pattern_set.add(ss.pattern_string())
+    list_choices = list(pattern_set)
+    list_choices.sort()
+    list_choices_var.set(list_choices)
+    cur_index = list_choices.index(ss.pattern_string())
+    listbox.see(cur_index)
+    listbox.selection_set(cur_index)
+    start_animation(ss)
+    error_text.set('')
+  except InputError as error:
+    error_text.set(error.message)
 
 def run_input_pattern():
-  try:
-    ss = SiteSwap.from_string(inputText.get())
-    start_animation(ss)
-    errorText.set('')
-  except InputError as error:
-    errorText.set(error.message)
+  return run_pattern(input_text.get())
 
 root.bind("<Return>", lambda x: run_input_pattern())
 
-currentPatternLabel = ttk.Label(frame, text="Running pattern")
-currentPatternLabel.grid(column=0, row=3)
-currentPatternText = StringVar()
-currentPatternDisplay = ttk.Label(frame, textvariable=currentPatternText)
-currentPatternDisplay.grid(column=1, row=3)
+current_pattern_label = ttk.Label(frame, text="Running pattern")
+current_pattern_label.grid(column=0, row=4)
+current_pattern_text = StringVar()
+current_pattern_display = ttk.Label(frame, textvariable=current_pattern_text)
+current_pattern_display.grid(column=1, row=4)
 # TODO: Error text will stretch the window out oddly if it's long; adjust
 # centering.
-errorText = StringVar()
-errorDisplay = ttk.Label(frame, textvariable=errorText)
-errorDisplay.grid(column=0, row=4, columnspan=3)
+error_text = StringVar()
+error_display = ttk.Label(frame, textvariable=error_text)
+error_display.grid(column=0, row=5, columnspan=3)
 
-copyButton = ttk.Button(frame, text = "Run", command = run_input_pattern)
-copyButton.grid(column=0, row=5)
+run_button = ttk.Button(frame, text = "Run", command = run_input_pattern)
+run_button.grid(column=0, row=6)
  
-exitButton = ttk.Button(frame, text = "Exit", command = sys.exit)
-exitButton.grid(column=1, row=5)
-exitButton.bind('<Enter>', lambda e: exitButton.configure(text='Click me!'))
-exitButton.bind('<Leave>', lambda e: exitButton.configure(text='Exit'))
+exit_button = ttk.Button(frame, text = "Exit", command = sys.exit)
+exit_button.grid(column=1, row=6)
+exit_button.bind('<Enter>', lambda e: exit_button.configure(text='Click me!'))
+exit_button.bind('<Leave>', lambda e: exit_button.configure(text='Exit'))
  
 BALL_RADIUS = 3
 HAND_HALF_W = 6
@@ -83,7 +110,7 @@ def create_canvas_objects(animation):
 
 
 def start_animation(ss):
-  currentPatternText.set(','.join(map(str, ss.pattern)))
+  current_pattern_text.set(ss.pattern_string())
   start_time = time.time() # Supposedly lacks resolution on some systems.
   #start_time_ns = time.time_ns() # Not available until 3.7
   animation = ss.animation()

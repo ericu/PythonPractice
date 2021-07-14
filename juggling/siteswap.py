@@ -173,6 +173,9 @@ class SiteSwap:
       raise InputError(error)
     return SiteSwap(pattern)
 
+  def pattern_string(self):
+    return ','.join(map(str, self.pattern))
+
   def __init__(self, parsedPattern, num_hands=2):
     self.num_balls = SiteSwap.validate_pattern(parsedPattern)
     self.pattern = parsedPattern
