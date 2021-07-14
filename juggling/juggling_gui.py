@@ -21,20 +21,29 @@ CANVAS_HEIGHT = 300
 canvas = Canvas(frame, bg="black", height=CANVAS_HEIGHT, width=CANVAS_WIDTH)
 canvas.grid(column=0, row=1, columnspan=2)
 
+list_frame = ttk.Frame(frame)
+list_frame.grid(column=1, row=2, sticky=(N,S,E,W))
+
+list_label = ttk.Label(frame, text="Choose pattern")
+list_label.grid(column=0, row=2)
+
 pattern_set = set(["4,4,1", "3", "6", "9", "5,6,1", "7,5,7,1", "10,8,9,5,3,1"])
 list_choices = list(pattern_set)
 list_choices.sort()
 list_choices_var = StringVar(value=list_choices)
-listbox = Listbox(frame, height=4, listvariable=list_choices_var)
-listbox.grid(column=1, row=2)
+listbox = Listbox(list_frame, height=4, listvariable=list_choices_var)
+listbox.grid(column=0, row=0, sticky=(N,S,E,W))
 def on_select_pattern(_):
   indices = listbox.curselection()
   if indices:
     (index,) = indices
     text = listbox.get(index)
     run_pattern(text)
-
 listbox.bind("<<ListboxSelect>>", on_select_pattern)
+
+scrollbar = ttk.Scrollbar(list_frame, orient=VERTICAL, command=listbox.yview)
+scrollbar.grid(column=1, row=0, sticky=(N,S))
+listbox['yscrollcommand'] = scrollbar.set
 
 canvas.grid(column=0, row=1, columnspan=2)
 
@@ -54,6 +63,7 @@ def run_pattern(text):
     list_choices_var.set(list_choices)
     cur_index = list_choices.index(ss.pattern_string())
     listbox.see(cur_index)
+    listbox.selection_clear(0, 'end')
     listbox.selection_set(cur_index)
     start_animation(ss)
     error_text.set('')
@@ -65,7 +75,7 @@ def run_input_pattern():
 
 root.bind("<Return>", lambda x: run_input_pattern())
 
-current_pattern_label = ttk.Label(frame, text="Running pattern")
+current_pattern_label = ttk.Label(frame, text="Current pattern")
 current_pattern_label.grid(column=0, row=4)
 current_pattern_text = StringVar()
 current_pattern_display = ttk.Label(frame, textvariable=current_pattern_text)
