@@ -27,7 +27,13 @@ list_frame.grid(column=1, row=2, sticky=(N,S,E,W))
 list_label = ttk.Label(frame, text="Choose pattern")
 list_label.grid(column=0, row=2)
 
-pattern_set = set(["4, 4, 1", "3", "6", "9", "5, 6, 1", "7, 5, 7, 1", "10, 8, 9, 5, 3, 1"])
+pattern_set = set(["4, 4, 1",
+                   "3",
+                   "6",
+                   "9",
+                   "5, 6, 1",
+                   "7, 5, 7, 1",
+                   "10, 8, 9, 5, 3, 1"])
 list_choices = list(pattern_set)
 list_choices.sort()
 list_choices_var = StringVar(value=list_choices)
@@ -94,11 +100,8 @@ error_text = StringVar()
 error_display = ttk.Label(frame, textvariable=error_text)
 error_display.grid(column=0, row=6, columnspan=3)
 
-run_button = ttk.Button(frame, text = "Run", command = run_input_pattern)
-run_button.grid(column=0, row=7)
- 
 exit_button = ttk.Button(frame, text = "Exit", command = sys.exit)
-exit_button.grid(column=1, row=7)
+exit_button.grid(column=0, row=7, columnspan=3)
 exit_button.bind('<Enter>', lambda e: exit_button.configure(text='Click me!'))
 exit_button.bind('<Leave>', lambda e: exit_button.configure(text='Exit'))
  
@@ -167,5 +170,6 @@ def start_animation(ss):
   request_redraw()
 
 
-start_animation(SiteSwap([10,8,9,5,3,1]))
+# TODO: Choose from pattern set.
+start_animation(SiteSwap([4,4,1]))
 root.mainloop()

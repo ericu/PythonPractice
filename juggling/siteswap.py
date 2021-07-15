@@ -58,9 +58,8 @@ class Arc(Motion):
     # Here we need the equation for the parabola.
     # s = vi t + 0.5 a t^2
     # s is dy; t is duration; choose G as convenient.
-    # TODO: Something's wrong here; balls don't hit hands quite right.
     vi = (dy - 0.5 * self.G * self.duration * self.duration) / self.duration
-    y = vi * dt + 0.5 * self.G * dt * dt
+    y = sy + vi * dt + 0.5 * self.G * dt * dt
     return (x, y)
 
 class HandMove(Motion):
@@ -89,14 +88,14 @@ CarryStart = namedtuple('CarryStart', ('index', 'position', 'ball'))
 r = 75
 def _simple_throw_pos(hand, num_hands):
   if num_hands == 2:
-    return ((hand - 0.5) * r, r * 0.2)
+    return ((hand - 0.5) * r, 0)
   else:
     angle = hand / num_hands * 2 * math.pi
     return (r * math.cos(angle), r * math.sin(angle))
 
 def _simple_catch_pos(hand, num_hands):
   if num_hands == 2:
-    return ((hand - 0.5) * r * 2, 0)
+    return ((hand - 0.5) * r * 2, r * 0.2)
   else:
     angle = (hand * 0.5) / num_hands * 2 * math.pi
     return (r * math.cos(angle), r * math.sin(angle))
