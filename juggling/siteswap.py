@@ -122,7 +122,7 @@ def _simple_throw_pos(hand, num_hands):
 
 def _simple_catch_pos(hand, num_hands):
   if num_hands == 2:
-    return ((hand - 0.5) * r * 2, r * 0.2)
+    return ((hand - 0.5) * r * 2, r * 0.1)
   else:
     angle = (hand * 0.5) / num_hands * 2 * math.pi
     return (r * math.cos(angle), r * math.sin(angle))

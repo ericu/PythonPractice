@@ -28,6 +28,7 @@ list_label = ttk.Label(frame, text="Choose pattern")
 list_label.grid(column=0, row=2)
 
 pattern_set = set(["4, 4, 1",
+                   "1,9,1,5",
                    "3",
                    "6",
                    "9",
@@ -108,10 +109,11 @@ exit_button.bind('<Leave>', lambda e: exit_button.configure(text='Exit'))
 BALL_RADIUS = 3
 HAND_HALF_W = 6
 HAND_H = 4
-ANIMATION_Y_MIN = BALL_RADIUS
-ANIMATION_Y_MAX = CANVAS_HEIGHT - HAND_H
-ANIMATION_X_MIN = BALL_RADIUS
-ANIMATION_X_MAX = CANVAS_WIDTH - BALL_RADIUS
+EDGE_BUFFER = 15
+ANIMATION_Y_MIN = EDGE_BUFFER
+ANIMATION_Y_MAX = CANVAS_HEIGHT - EDGE_BUFFER
+ANIMATION_X_MIN = EDGE_BUFFER
+ANIMATION_X_MAX = CANVAS_WIDTH - EDGE_BUFFER
 ANIMATION_WIDTH = ANIMATION_X_MAX - ANIMATION_X_MIN
 ANIMATION_HEIGHT = ANIMATION_Y_MAX - ANIMATION_Y_MIN
 
@@ -178,5 +180,5 @@ def start_animation(ss):
 
 
 # TODO: Choose from pattern set.
-start_animation(SiteSwap([4,4,1]))
+run_pattern('4,4,1')
 root.mainloop()
