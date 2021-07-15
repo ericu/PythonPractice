@@ -176,8 +176,10 @@ class Animation:
       y_max = max(y_max_0, y_max_1)
       return (x_min, y_min, x_max, y_max)
 
-    boxes = map(lambda x: x.bounding_box(), self.ball_paths + self.hand_paths)
-    return reduce(merge_boxes, boxes)
+    path_list = list(self.ball_paths.values()) + list(self.hand_paths.values())
+    motion_list = [motion for path in path_list for motion in path]
+    bbox_list = map(lambda m: m.bounding_box(), motion_list)
+    return reduce(merge_boxes, bbox_list)
 
 class SiteSwap:
   """Class for representing asynchronous site-swap juggling patterns."""

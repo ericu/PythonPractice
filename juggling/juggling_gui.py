@@ -108,10 +108,13 @@ exit_button.bind('<Leave>', lambda e: exit_button.configure(text='Exit'))
 BALL_RADIUS = 3
 HAND_HALF_W = 6
 HAND_H = 4
-ANIMATION_BOTTOM = CANVAS_HEIGHT - HAND_H
+ANIMATION_Y_MIN = CANVAS_HEIGHT - HAND_H
+ANIMATION_Y_MAX = BALL_RADIUS
+ANIMATION_X_MIN = BALL_RADIUS
+ANIMATION_X_MAX = CANVAS_WIDTH - BALL_RADIUS
+ANIMATION_WIDTH = ANIMATION_X_MAX - ANIMATION_X_MIN
+ANIMATION_HEIGHT = ANIMATION_Y_MAX - ANIMATION_Y_MIN
 
-CANVAS_CENTER_X = CANVAS_WIDTH / 2
-CANVAS_CENTER_Y = CANVAS_HEIGHT / 2
 FRAMES_PER_SECOND = 60
 
 def create_canvas_objects(animation):
@@ -135,8 +138,18 @@ def start_animation(ss):
   #start_time_ns = time.time_ns() # Not available until 3.7
   animation = ss.animation()
   canvas_objects = create_canvas_objects(animation)
-  bbox = animation.bounding_box()
-  #TODO: Scale to just inside the bounding box by the size of the ball/hand.
+  (x_min, y_min, x_max, y_max) = animation.bounding_box()
+  print(x_min, y_min, x_max, y_max)
+  x_scale = ANIMATION_WIDTH / (x_max - x_min)
+  y_scale = ANIMATION_HEIGHT / (y_min - y_max) # invert
+  def coord_to_canvas(anim_value, anim_min, scale, canvas_min):
+    print('coord_to_canvas', anim_value, anim_min, scale, canvas_min)
+    print('output', (anim_value - anim_min) * scale + canvas_min)
+    return (anim_value - anim_min) * scale + canvas_min
+  def coords_to_canvas(coords):
+    (x, y) = coords
+    return (coord_to_canvas(x, x_min, x_scale, ANIMATION_X_MIN),
+            coord_to_canvas(y, y_min, y_scale, ANIMATION_Y_MAX))
 
   def redraw():
     request_redraw()
@@ -151,18 +164,17 @@ def start_animation(ss):
 
   def draw(animation, time, objects):
     for hand in range(animation.num_hands()):
-      (x, y) = animation.hand_location_at(hand, time)
-      x += CANVAS_CENTER_X
-      y = ANIMATION_BOTTOM - y
+      (cx, cy) = animation.hand_location_at(hand, time)
+      (x, y) = coords_to_canvas(animation.hand_location_at(hand, time))
+      print(cx, cy, ' became ', x, y)
+      #sys.exit()
       x0 = x - HAND_HALF_W
       y0 = y
       x1 = x + HAND_HALF_W
       y1 = y + HAND_H
       canvas.coords(objects['hands'][hand], (x0, y0, x1, y1))
     for ball in range(animation.num_balls()):
-      (x, y) = animation.ball_location_at(ball, time)
-      x += CANVAS_CENTER_X
-      y = ANIMATION_BOTTOM - y
+      (x, y) = coords_to_canvas(animation.ball_location_at(ball, time))
       x0 = x - BALL_RADIUS
       y0 = y - BALL_RADIUS
       x1 = x + BALL_RADIUS
