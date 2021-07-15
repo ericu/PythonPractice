@@ -34,14 +34,26 @@ class Motion:
     time_to_check = time if time >= self.index else time + cycle_length
     return time_to_check >= self.index and time_to_check < self.end_time
 
-  def location_at(self, time):
-    raise Error('Unimplemented')
+  def location_at(self, time, cycle_length):
+    raise NotImplementedError('Unimplemented')
+
+  def bounding_box(self):
+    raise NotImplementedError('Unimplemented')
 
 class Arc(Motion):
   G = -25
 
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
+    sx, sy = self.start_pos
+    ex, ey = self.end_pos
+    self.dx = ex - sx
+    self.dy = ey - sy
+    # Here we need the equation for the parabola.
+    # s = vi t + 0.5 a t^2
+    # s is dy; t is duration; choose G as convenient.
+    self.vi = ((self.dy - 0.5 * self.G * self.duration * self.duration) /
+               self.duration)
 
   def location_at(self, time, cycle_length):
     time %= cycle_length
@@ -49,18 +61,24 @@ class Arc(Motion):
     assert time >= self.index and time < self.end_time
     # TODO: Use a vector object for positions.
     sx, sy = self.start_pos
-    ex, ey = self.end_pos
     dt = time - self.index
     fraction = dt / self.duration
-    dx = ex - sx
-    dy = ey - sy
-    x = sx + fraction * dx
-    # Here we need the equation for the parabola.
-    # s = vi t + 0.5 a t^2
-    # s is dy; t is duration; choose G as convenient.
-    vi = (dy - 0.5 * self.G * self.duration * self.duration) / self.duration
-    y = sy + vi * dt + 0.5 * self.G * dt * dt
+    x = sx + fraction * self.dx
+    y = sy + self.vi * dt + 0.5 * self.G * dt * dt
     return (x, y)
+
+  def bounding_box(self):
+    # vf^2 = vi^2 + 2 a s; peak is at vf = 0.
+    # - 2 a s = vi^2
+    # s = vi^2 / (-2 a)
+    dy_max = self.vi * self.vi / (- 2 * self.G)
+    sx, sy = self.start_pos
+    ex, ey = self.end_pos
+    x_min = min(sx, ex)
+    y_min = min(sy, ey)
+    x_max = max(sx, ex)
+    y_max = sy + dy_max
+    return (x_min, y_min, x_max, y_max)
 
 class HandMove(Motion):
   def __init__(self, *args, **kwargs):
@@ -79,6 +97,15 @@ class HandMove(Motion):
     x = sx + fraction * dx
     y = sy + fraction * dy
     return (x, y)
+
+  def bounding_box(self):
+    sx, sy = self.start_pos
+    ex, ey = self.end_pos
+    x_min = min(sx, ex)
+    y_min = min(sx, ey)
+    x_max = max(sx, ex)
+    y_max = max(sx, ey)
+    return (x_min, y_min, x_max, y_max)
 
 #todo: Classes for these, possibly subclasses of some parent?
 CarryEnd = namedtuple('CarryEnd', ('index', 'position', 'ball'))
@@ -139,6 +166,19 @@ class Animation:
     assert False, 'Any time should have a ball location.'
     return (0, 0)
 
+  def bounding_box(self):
+    def merge_boxes(b0, b1):
+      x_min_0, y_min_0, x_max_0, y_max_0 = b0
+      x_min_1, y_min_1, x_max_1, y_max_1 = b1
+      x_min = min(x_min_0, x_min_1)
+      y_min = min(y_min_0, y_min_1)
+      x_max = max(x_max_0, x_max_1)
+      y_max = max(y_max_0, y_max_1)
+      return (x_min, y_min, x_max, y_max)
+
+    boxes = map(lambda x: x.bounding_box(), self.ball_paths + self.hand_paths)
+    return reduce(merge_boxes, boxes)
+
 class SiteSwap:
   """Class for representing asynchronous site-swap juggling patterns."""
 
@@ -163,10 +203,11 @@ class SiteSwap:
     assert(all(destinations))
     return int(num_balls)
 
-  def from_string(str):
+  @staticmethod
+  def from_string(string_pattern):
     """Produces a SiteSwap from a comma-separated list of natural numbers."""
     # todo: Would be nice to split on comma *or* whitespace.
-    as_strings = [s.strip() for s in str.split(",")]
+    as_strings = [s.strip() for s in string_pattern.split(",")]
     try:
       pattern = [int(i) for i in as_strings if len(i)]
     except ValueError as error:

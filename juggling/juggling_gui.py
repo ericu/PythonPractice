@@ -135,6 +135,8 @@ def start_animation(ss):
   #start_time_ns = time.time_ns() # Not available until 3.7
   animation = ss.animation()
   canvas_objects = create_canvas_objects(animation)
+  bbox = animation.bounding_box()
+  #TODO: Scale to just inside the bounding box by the size of the ball/hand.
 
   def redraw():
     request_redraw()
