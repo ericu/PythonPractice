@@ -108,8 +108,8 @@ exit_button.bind('<Leave>', lambda e: exit_button.configure(text='Exit'))
 BALL_RADIUS = 3
 HAND_HALF_W = 6
 HAND_H = 4
-ANIMATION_Y_MIN = CANVAS_HEIGHT - HAND_H
-ANIMATION_Y_MAX = BALL_RADIUS
+ANIMATION_Y_MIN = BALL_RADIUS
+ANIMATION_Y_MAX = CANVAS_HEIGHT - HAND_H
 ANIMATION_X_MIN = BALL_RADIUS
 ANIMATION_X_MAX = CANVAS_WIDTH - BALL_RADIUS
 ANIMATION_WIDTH = ANIMATION_X_MAX - ANIMATION_X_MIN
@@ -139,17 +139,12 @@ def start_animation(ss):
   animation = ss.animation()
   canvas_objects = create_canvas_objects(animation)
   (x_min, y_min, x_max, y_max) = animation.bounding_box()
-  print(x_min, y_min, x_max, y_max)
   x_scale = ANIMATION_WIDTH / (x_max - x_min)
-  y_scale = ANIMATION_HEIGHT / (y_min - y_max) # invert
-  def coord_to_canvas(anim_value, anim_min, scale, canvas_min):
-    print('coord_to_canvas', anim_value, anim_min, scale, canvas_min)
-    print('output', (anim_value - anim_min) * scale + canvas_min)
-    return (anim_value - anim_min) * scale + canvas_min
+  y_scale = ANIMATION_HEIGHT / (y_max - y_min)
   def coords_to_canvas(coords):
     (x, y) = coords
-    return (coord_to_canvas(x, x_min, x_scale, ANIMATION_X_MIN),
-            coord_to_canvas(y, y_min, y_scale, ANIMATION_Y_MAX))
+    return ((x - x_min) * x_scale + ANIMATION_X_MIN,
+            ANIMATION_Y_MAX - (y - y_min) * y_scale)
 
   def redraw():
     request_redraw()
@@ -166,8 +161,6 @@ def start_animation(ss):
     for hand in range(animation.num_hands()):
       (cx, cy) = animation.hand_location_at(hand, time)
       (x, y) = coords_to_canvas(animation.hand_location_at(hand, time))
-      print(cx, cy, ' became ', x, y)
-      #sys.exit()
       x0 = x - HAND_HALF_W
       y0 = y
       x1 = x + HAND_HALF_W

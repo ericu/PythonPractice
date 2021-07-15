@@ -102,9 +102,9 @@ class HandMove(Motion):
     sx, sy = self.start_pos
     ex, ey = self.end_pos
     x_min = min(sx, ex)
-    y_min = min(sx, ey)
+    y_min = min(sy, ey)
     x_max = max(sx, ex)
-    y_max = max(sx, ey)
+    y_max = max(sy, ey)
     return (x_min, y_min, x_max, y_max)
 
 #todo: Classes for these, possibly subclasses of some parent?
