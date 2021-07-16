@@ -123,6 +123,7 @@ def create_canvas_objects(animation):
   canvas.delete("all")
   balls = {}
   hands = {}
+  # TODO: Unique colors per ball and hand.
   for hand in range(animation.num_hands()):
     hands[hand] = canvas.create_rectangle(-BALL_RADIUS, -BALL_RADIUS,
                                           BALL_RADIUS, BALL_RADIUS,
