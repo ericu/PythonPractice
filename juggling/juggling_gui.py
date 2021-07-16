@@ -57,24 +57,28 @@ canvas.grid(column=0, row=1, columnspan=2)
 input_label = ttk.Label(frame, text="Or input pattern")
 input_label.grid(column=0, row=3)
 input_pattern_var = tkinter.StringVar()
-input_pattern_entry = ttk.Entry(frame, width=10, textvariable=input_pattern_var)
+input_pattern_entry = ttk.Entry(
+    frame, width=10, textvariable=input_pattern_var
+)
 input_pattern_entry.grid(column=1, row=3)
 input_pattern_entry.focus()
 
 # Until Python 3.7, ttk lacks Spinbox.
 class Spinbox(ttk.Entry):
-
     def __init__(self, master=None, **kw):
 
         ttk.Entry.__init__(self, master, "ttk::spinbox", **kw)
+
     def set(self, value):
         self.tk.call(self._w, "set", value)
+
 
 num_hands_label = ttk.Label(frame, text="Number of hands")
 num_hands_label.grid(column=0, row=4)
 num_hands_var = tkinter.StringVar(value=2)
 num_hands_selector = Spinbox(frame, from_=1, to=7, textvariable=num_hands_var)
 num_hands_selector.grid(column=1, row=4)
+
 
 def run_pattern(text):
     try:
@@ -101,14 +105,18 @@ def on_select_pattern(_):
         text = listbox.get(index)
         run_pattern(text)
 
+
 listbox.bind("<<ListboxSelect>>", on_select_pattern)
 
+
 def on_select_num_hands(_):
-  # This delay lets the value in current_pattern_text update.
-  root.after(1, lambda: run_pattern(current_pattern_text.get()))
+    # This delay lets the value in current_pattern_text update.
+    root.after(1, lambda: run_pattern(current_pattern_text.get()))
+
 
 num_hands_selector.bind("<<Increment>>", on_select_num_hands)
 num_hands_selector.bind("<<Decrement>>", on_select_num_hands)
+
 
 def run_input_pattern():
     return run_pattern(input_pattern_var.get())
@@ -211,14 +219,18 @@ def start_animation(ss):
 
     def draw(animation, at_time, objects):
         for hand in range(animation.num_hands()):
-            (x, y) = coords_to_canvas(animation.hand_location_at(hand, at_time))
+            (x, y) = coords_to_canvas(
+                animation.hand_location_at(hand, at_time)
+            )
             x_0 = x - HAND_HALF_W
             y_0 = y
             x_1 = x + HAND_HALF_W
             y_1 = y + HAND_H
             canvas.coords(objects["hands"][hand], (x_0, y_0, x_1, y_1))
         for ball in range(animation.num_balls()):
-            (x, y) = coords_to_canvas(animation.ball_location_at(ball, at_time))
+            (x, y) = coords_to_canvas(
+                animation.ball_location_at(ball, at_time)
+            )
             x_0 = x - BALL_RADIUS
             y_0 = y - BALL_RADIUS
             x_1 = x + BALL_RADIUS
