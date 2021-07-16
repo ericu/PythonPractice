@@ -12,10 +12,12 @@ class InputError(Exception):
     self.message = message
 
 Throw = namedtuple('Throw', ('index', 'height'))
-Orbit = namedtuple('Orbit', ('ballIds', 'start_index', 'sequence', 'length'))
-Analysis = namedtuple('Analysis', ('pattern', 'num_hands', 'orbits', 'cycle_length'))
+
 # todo: this will gain more fields for throw+catch location.
 Segment = namedtuple('Segment', ('height', 'throw_hand', 'catch_hand'))
+# Sequence is a list of Segments.
+Orbit = namedtuple('Orbit', ('ballIds', 'start_index', 'sequence', 'length'))
+Analysis = namedtuple('Analysis', ('pattern', 'num_hands', 'orbits', 'cycle_length'))
 
 def lcm(numbers):
   return reduce(lambda a, b: a * b // math.gcd(a, b), numbers)
@@ -107,10 +109,6 @@ class HandMove(Motion):
     y_max = max(sy, ey)
     return (x_min, y_min, x_max, y_max)
 
-#todo: Classes for these, possibly subclasses of some parent?
-CarryEnd = namedtuple('CarryEnd', ('index', 'position', 'ball'))
-CarryStart = namedtuple('CarryStart', ('index', 'position', 'ball'))
-
 # This is a hack to put in default throw/catch locations.
 r = 75
 def _simple_throw_pos(hand, num_hands):
@@ -132,8 +130,6 @@ def _simple_handoff_pos(from_hand, to_hand, num_hands):
   (x1, y1) = _simple_throw_pos(to_hand, num_hands)
   return ((x0 + x1) / 2, (y0 + y1) / 2)
 
-# TODO: Scale animation to just fit within a unit box, based on throw height and
-# hand positions.
 class Animation:
   def __init__(self, ball_paths, hand_paths, cycle_length):
     self.ball_paths = ball_paths
@@ -295,6 +291,9 @@ class SiteSwap:
 # ball/hand N at time T?"  Possibly we'll move this all to the SiteSwap
 # constructor, but maybe not.
 def analysis_to_animation(analysis):
+  CarryEnd = namedtuple('CarryEnd', ('index', 'position', 'ball'))
+  CarryStart = namedtuple('CarryStart', ('index', 'position', 'ball'))
+
   _, num_hands, orbits, cycle_length = analysis
   hands = dict([(hand, []) for hand in range(num_hands)])
   ball_paths = {}

@@ -179,6 +179,6 @@ def start_animation(ss):
   request_redraw()
 
 
-# TODO: Choose from pattern set.
+# todo: Choose from pattern set instead of using a string?
 run_pattern('4,4,1')
 root.mainloop()
