@@ -61,10 +61,19 @@ input_pattern_entry = ttk.Entry(frame, width=10, textvariable=input_pattern_var)
 input_pattern_entry.grid(column=1, row=3)
 input_pattern_entry.focus()
 
+# Until Python 3.7, ttk lacks Spinbox.
+class Spinbox(ttk.Entry):
+
+    def __init__(self, master=None, **kw):
+
+        ttk.Entry.__init__(self, master, "ttk::spinbox", **kw)
+    def set(self, value):
+        self.tk.call(self._w, "set", value)
+
 num_hands_label = ttk.Label(frame, text="Number of hands")
 num_hands_label.grid(column=0, row=4)
 num_hands_var = tkinter.StringVar(value=2)
-num_hands_selector = ttk.Combobox(frame, values=[1,2,3,5,7], textvariable=num_hands_var)
+num_hands_selector = Spinbox(frame, from_=1, to=7, textvariable=num_hands_var)
 num_hands_selector.grid(column=1, row=4)
 
 def run_pattern(text):
@@ -95,10 +104,10 @@ def on_select_pattern(_):
 listbox.bind("<<ListboxSelect>>", on_select_pattern)
 
 def on_select_num_hands(_):
-  run_pattern(current_pattern_text.get())
+  root.after(1, lambda: run_pattern(current_pattern_text.get()))
 
-num_hands_selector.bind("<<ComboboxSelected>>", on_select_num_hands)
-num_hands_selector.bind("<Return>", on_select_num_hands)
+num_hands_selector.bind("<<Increment>>", on_select_num_hands)
+num_hands_selector.bind("<<Decrement>>", on_select_num_hands)
 
 def run_input_pattern():
     return run_pattern(input_pattern_var.get())
