@@ -104,6 +104,7 @@ def on_select_pattern(_):
 listbox.bind("<<ListboxSelect>>", on_select_pattern)
 
 def on_select_num_hands(_):
+  # This delay lets the value in current_pattern_text update.
   root.after(1, lambda: run_pattern(current_pattern_text.get()))
 
 num_hands_selector.bind("<<Increment>>", on_select_num_hands)
