@@ -129,8 +129,9 @@ def _simple_throw_pos(hand, num_hands):
 def _simple_catch_pos(hand, num_hands):
     if num_hands == 2:
         return ((hand - 0.5) * r * 2, r * 0.1)
-    angle = (hand * 0.5) / num_hands * 2 * math.pi
-    return (r * math.cos(angle), r * math.sin(angle))
+    angle = hand / num_hands * 2 * math.pi
+    outer_r = r * 1.1
+    return (outer_r * math.cos(angle), outer_r * math.sin(angle))
 
 
 def _simple_handoff_pos(from_hand, to_hand, num_hands):
@@ -223,7 +224,7 @@ class SiteSwap:
         return int(num_balls)
 
     @staticmethod
-    def from_string(string_pattern):
+    def from_string(string_pattern, num_hands=2):
         """Produces a SiteSwap from a comma-separated list of natural numbers."""
         # todo: Would be nice to split on comma *or* whitespace.
         as_strings = [s.strip() for s in string_pattern.split(",")]
@@ -231,7 +232,7 @@ class SiteSwap:
             pattern = [int(i) for i in as_strings if len(i)]
         except ValueError as error:
             raise InputError("Invalid pattern string") from error
-        return SiteSwap(pattern)
+        return SiteSwap(pattern, num_hands)
 
     def pattern_string(self):
         return ", ".join(map(str, self.pattern))

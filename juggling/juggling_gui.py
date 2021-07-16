@@ -48,16 +48,6 @@ listbox = tkinter.Listbox(list_frame, height=4, listvariable=list_choices_var)
 listbox.grid(column=0, row=0, sticky=(N, S, E, W))
 
 
-def on_select_pattern(_):
-    indices = listbox.curselection()
-    if indices:
-        (index,) = indices
-        text = listbox.get(index)
-        run_pattern(text)
-
-
-listbox.bind("<<ListboxSelect>>", on_select_pattern)
-
 scrollbar = ttk.Scrollbar(list_frame, orient=VERTICAL, command=listbox.yview)
 scrollbar.grid(column=1, row=0, sticky=(N, S))
 listbox["yscrollcommand"] = scrollbar.set
@@ -66,15 +56,21 @@ canvas.grid(column=0, row=1, columnspan=2)
 
 input_label = ttk.Label(frame, text="Or input pattern")
 input_label.grid(column=0, row=3)
-input_text = tkinter.StringVar()
-input_entry = ttk.Entry(frame, width=10, textvariable=input_text)
-input_entry.grid(column=1, row=3)
-input_entry.focus()
+input_pattern_var = tkinter.StringVar()
+input_pattern_entry = ttk.Entry(frame, width=10, textvariable=input_pattern_var)
+input_pattern_entry.grid(column=1, row=3)
+input_pattern_entry.focus()
 
+num_hands_label = ttk.Label(frame, text="Number of hands")
+num_hands_label.grid(column=0, row=4)
+num_hands_var = tkinter.StringVar(value=2)
+num_hands_selector = ttk.Combobox(frame, values=[1,2,3,5,7], textvariable=num_hands_var)
+num_hands_selector.grid(column=1, row=4)
 
 def run_pattern(text):
     try:
-        ss = SiteSwap.from_string(text)
+        num_hands = int(num_hands_var.get())
+        ss = SiteSwap.from_string(text, num_hands)
         pattern_set.add(ss.pattern_string())
         pattern_list = list(pattern_set)
         pattern_list.sort()
@@ -89,20 +85,35 @@ def run_pattern(text):
         error_text.set(error)
 
 
+def on_select_pattern(_):
+    indices = listbox.curselection()
+    if indices:
+        (index,) = indices
+        text = listbox.get(index)
+        run_pattern(text)
+
+listbox.bind("<<ListboxSelect>>", on_select_pattern)
+
+def on_select_num_hands(_):
+  run_pattern(current_pattern_text.get())
+
+num_hands_selector.bind("<<ComboboxSelected>>", on_select_num_hands)
+num_hands_selector.bind("<Return>", on_select_num_hands)
+
 def run_input_pattern():
-    return run_pattern(input_text.get())
+    return run_pattern(input_pattern_var.get())
 
 
-root.bind("<Return>", lambda x: run_input_pattern())
+input_pattern_entry.bind("<Return>", lambda x: run_input_pattern())
 
 current_pattern_label = ttk.Label(frame, text="Current pattern")
-current_pattern_label.grid(column=0, row=4)
+current_pattern_label.grid(column=0, row=5)
 current_pattern_text = tkinter.StringVar()
 current_pattern_display = ttk.Label(frame, textvariable=current_pattern_text)
-current_pattern_display.grid(column=1, row=4)
+current_pattern_display.grid(column=1, row=5)
 
 speed_slider_label = ttk.Label(frame, text="Animation speed")
-speed_slider_label.grid(column=0, row=5)
+speed_slider_label.grid(column=0, row=6)
 beats_per_second_var = tkinter.DoubleVar(value=3)
 speed_slider = ttk.Scale(
     frame,
@@ -112,16 +123,16 @@ speed_slider = ttk.Scale(
     to=5,
     variable=beats_per_second_var,
 )
-speed_slider.grid(column=1, row=5, columnspan=2)
+speed_slider.grid(column=1, row=6, columnspan=2)
 
 # TODO: Error text will stretch the window out oddly if it's long; adjust
 # centering.
 error_text = tkinter.StringVar()
 error_display = ttk.Label(frame, textvariable=error_text)
-error_display.grid(column=0, row=6, columnspan=3)
+error_display.grid(column=0, row=7, columnspan=3)
 
 exit_button = ttk.Button(frame, text="Exit", command=sys.exit)
-exit_button.grid(column=0, row=7, columnspan=3)
+exit_button.grid(column=0, row=8, columnspan=3)
 exit_button.bind("<Enter>", lambda e: exit_button.configure(text="Click me!"))
 exit_button.bind("<Leave>", lambda e: exit_button.configure(text="Exit"))
 
