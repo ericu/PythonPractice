@@ -14,7 +14,6 @@ class InputError(Exception):
 
 Throw = namedtuple("Throw", ("index", "height"))
 
-# todo: this will gain more fields for throw+catch location.
 Segment = namedtuple("Segment", ("height", "throw_hand", "catch_hand"))
 # Sequence is a list of Segments.
 Orbit = namedtuple("Orbit", ("ball_ids", "start_index", "sequence", "length"))
@@ -28,25 +27,24 @@ def lcm(numbers):
 
 
 class Motion:
-    # TODO: Rename index to time?
-    def __init__(self, index, duration, start_pos, end_pos):
-        self.index = index
+    def __init__(self, time, duration, start_pos, end_pos):
+        self.time = time
         self.duration = duration
-        self.end_time = index + duration
+        self.end_time = time + duration
         self.start_pos = start_pos
         self.end_pos = end_pos
 
     def __repr__(self):
         type_name = type(self).__name__
         return (
-            f"{type_name}({self.index!r},{self.duration!r},"
+            f"{type_name}({self.time!r},{self.duration!r},"
             + f"{self.start_pos!r},{self.end_pos!r})"
         )
 
     def covers(self, time, cycle_length):
         time %= cycle_length
-        time_to_check = time if time >= self.index else time + cycle_length
-        return self.index <= time_to_check < self.end_time
+        time_to_check = time if time >= self.time else time + cycle_length
+        return self.time <= time_to_check < self.end_time
 
     def location_at(self, time, cycle_length):
         raise NotImplementedError("Unimplemented")
@@ -73,11 +71,11 @@ class Arc(Motion):
 
     def location_at(self, time, cycle_length):
         time %= cycle_length
-        time = time if time >= self.index else time + cycle_length
-        assert self.index <= time < self.end_time
+        time = time if time >= self.time else time + cycle_length
+        assert self.time <= time < self.end_time
         # TODO: Use a vector object for positions.
         s_x, s_y = self.start_pos
-        dt = time - self.index
+        dt = time - self.time
         fraction = dt / self.duration
         x = s_x + fraction * self.dx
         y = s_y + self.v_i * dt + 0.5 * self.G * dt * dt
@@ -100,12 +98,12 @@ class Arc(Motion):
 class HandMove(Motion):
     def location_at(self, time, cycle_length):
         time %= cycle_length
-        time = time if time >= self.index else time + cycle_length
-        assert self.index <= time < self.end_time
+        time = time if time >= self.time else time + cycle_length
+        assert self.time <= time < self.end_time
         # TODO: Use a vector object for positions.
         s_x, s_y = self.start_pos
         e_x, e_y = self.end_pos
-        fraction = (time - self.index) / self.duration
+        fraction = (time - self.time) / self.duration
         dx = e_x - s_x
         dy = e_y - s_y
         x = s_x + fraction * dx
@@ -281,9 +279,7 @@ class SiteSwap:
         properties."""
         if len(self.pattern) % self.num_hands:
             # This makes sure each ball gets back to its original hand, not just
-            # the starting spot in the numerical pattern.  todo: if the overage
-            # and num_hands aren't relatively prime, we can make it somewhat
-            # shorter.
+            # the starting spot in the numerical pattern.
             pattern = self.pattern * self.num_hands
         else:
             pattern = self.pattern
@@ -333,8 +329,8 @@ class SiteSwap:
 
 
 def analysis_to_animation(analysis):
-    CarryEnd = namedtuple("CarryEnd", ("index", "position", "ball"))
-    CarryStart = namedtuple("CarryStart", ("index", "position", "ball"))
+    CarryEnd = namedtuple("CarryEnd", ("time", "position", "ball"))
+    CarryStart = namedtuple("CarryStart", ("time", "position", "ball"))
 
     _, num_hands, orbits, cycle_length = analysis
     hands = {hand: [] for hand in range(num_hands)}
@@ -384,14 +380,14 @@ def analysis_to_animation(analysis):
     for hand, carry_parts in hands.items():
         path = []
         assert not len(carry_parts) % 2
-        carry_parts.sort(key=lambda p: p.index)
+        carry_parts.sort(key=lambda p: p.time)
         for (i, start) in enumerate(carry_parts):
             end = carry_parts[(i + 1) % len(carry_parts)]
             # carry_parts should alternate between begin and end.
             assert type(start) != type(end)
-            duration = (end.index - start.index + cycle_length) % cycle_length
+            duration = (end.time - start.time + cycle_length) % cycle_length
             move = HandMove(
-                start.index, duration, start.position, end.position
+                start.time, duration, start.position, end.position
             )
             path.append(move)
             if isinstance(start, CarryStart):
@@ -399,7 +395,7 @@ def analysis_to_animation(analysis):
                 ball_paths[start.ball].append(move)
         hand_paths[hand] = path
     for ball_path in ball_paths.values():
-        ball_path.sort(key=lambda arc: arc.index)
+        ball_path.sort(key=lambda arc: arc.time)
     return Animation(ball_paths, hand_paths, cycle_length)
 
 
