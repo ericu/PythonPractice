@@ -11,19 +11,17 @@ BALL_RADIUS = 5
 HAND_HALF_W = 10
 HAND_H = 8
 EDGE_BUFFER = 20
-CANVAS_WIDTH = 300
-CANVAS_HEIGHT = 300
-ANIMATION_Y_MIN = EDGE_BUFFER
-ANIMATION_Y_MAX = CANVAS_HEIGHT - EDGE_BUFFER
-ANIMATION_X_MIN = EDGE_BUFFER
-ANIMATION_X_MAX = CANVAS_WIDTH - EDGE_BUFFER
-ANIMATION_WIDTH = ANIMATION_X_MAX - ANIMATION_X_MIN
-ANIMATION_HEIGHT = ANIMATION_Y_MAX - ANIMATION_Y_MIN
+
+INITIAL_CANVAS_WIDTH = 300
+INITIAL_CANVAS_HEIGHT = 300
 
 FRAMES_PER_SECOND = 60
 
+
 def create_gui():
     running_animation = None
+    canvas_width = INITIAL_CANVAS_WIDTH
+    canvas_height = INITIAL_CANVAS_HEIGHT
 
     root = tk.Tk()
     root.title("Juggling SiteSwap Animator")
@@ -41,7 +39,7 @@ def create_gui():
     label.grid(column=0, row=0, columnspan=2)
 
     canvas = tk.Canvas(
-        frame, bg="black", height=CANVAS_HEIGHT, width=CANVAS_WIDTH
+        frame, bg="black", height=canvas_height, width=canvas_width
     )
     canvas.grid(column=0, row=1, columnspan=2, sticky=N + S + E + W)
 
@@ -122,7 +120,12 @@ def create_gui():
             listbox.selection_clear(0, "end")
             listbox.selection_set(cur_index)
             new_animation = RunningAnimation(
-                root, canvas, siteswap, beats_per_second_var.get()
+                root,
+                canvas,
+                siteswap,
+                beats_per_second_var.get(),
+                canvas_width,
+                canvas_height,
             )
             if running_animation:
                 running_animation.stop()
@@ -186,25 +189,60 @@ def create_gui():
     exit_button = ttk.Button(frame, text="Exit", command=sys.exit)
     exit_button.grid(column=0, row=8, columnspan=3)
 
+    canvas.bind('<Configure>',
+                lambda e: running_animation.resize(e.width, e.height))
     return (root, canvas, run_pattern)
 
 
 class RunningAnimation:
-    def __init__(self, root, canvas, siteswap, beats_per_second):
+    def __init__(
+        self,
+        root,
+        canvas,
+        siteswap,
+        beats_per_second,
+        canvas_width,
+        canvas_height,
+    ):
         self.stopped = False
         self.canvas = canvas
         self.root = root
         self.beats_per_second = beats_per_second
         self.pattern_string = siteswap.pattern_string()
+        self.canvas_width = None
+        self.canvas_height = None
 
         self.start_time = time.time()  # Lacks resolution on some systems.
         # start_time_ns = time.time_ns() # Not available until 3.7
         self.animation = siteswap.animation()
         self.canvas_objects = self.create_canvas_objects()
-        (self.x_min, self.y_min, x_max, y_max) = self.animation.bounding_box()
-        self.x_scale = ANIMATION_WIDTH / (x_max - self.x_min)
-        self.y_scale = ANIMATION_HEIGHT / (y_max - self.y_min)
+
+        self.resize(canvas_width, canvas_height)
         self.request_redraw()
+
+    def resize(self, canvas_width, canvas_height):
+        if (
+            self.canvas_width != canvas_width
+            or self.canvas_height != canvas_height
+        ):
+
+            (
+                self.x_min,
+                self.y_min,
+                x_max,
+                y_max,
+            ) = self.animation.bounding_box()
+            self.canvas_width = canvas_width
+            self.canvas_height = canvas_height
+            animation_y_min = EDGE_BUFFER
+            self.animation_y_max = self.canvas_height - EDGE_BUFFER
+            self.animation_x_min = EDGE_BUFFER
+            animation_x_max = self.canvas_width - EDGE_BUFFER
+            animation_width = animation_x_max - self.animation_x_min
+            animation_height = self.animation_y_max - animation_y_min
+
+            self.x_scale = animation_width / (x_max - self.x_min)
+            self.y_scale = animation_height / (y_max - self.y_min)
 
     ball_colors = [
         "sky blue",
@@ -253,8 +291,8 @@ class RunningAnimation:
     def coords_to_canvas(self, coords):
         (x, y) = coords
         return (
-            (x - self.x_min) * self.x_scale + ANIMATION_X_MIN,
-            ANIMATION_Y_MAX - (y - self.y_min) * self.y_scale,
+            (x - self.x_min) * self.x_scale + self.animation_x_min,
+            self.animation_y_max - (y - self.y_min) * self.y_scale,
         )
 
     def redraw(self):
@@ -312,5 +350,6 @@ def main():
     run_pattern_from_string(canvas, "9, 7, 5")
     root.mainloop()
 
+
 if __name__ == "__main__":
-  main()
+    main()
