@@ -27,11 +27,14 @@ def create_gui():
 
     root = tk.Tk()
     root.title("Juggling SiteSwap Animator")
+    root.grid_columnconfigure(0, weight=1)
+    root.grid_rowconfigure(0, weight=1)
 
-    # TODO: This doesn't appear to resize properly when stretched.
-    # If we get the canvas to stretch, we'll have to re-scale the animation.
-    frame = ttk.Frame(root, width=200)
+    # TODO: re-scale the animation as the canvas stretches.
+    frame = ttk.Frame(root, width=200, borderwidth=3)
     frame.grid(column=0, row=0, sticky=N + S + E + W)
+    frame.grid_columnconfigure(0, weight=1)
+    frame.grid_rowconfigure(1, weight=1)
 
     label = ttk.Label(frame, text="This program animates vanilla siteswaps.")
     label.grid(column=0, row=0, columnspan=2)
