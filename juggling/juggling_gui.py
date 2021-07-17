@@ -40,7 +40,7 @@ pattern_set = set(
         "7, 5, 7, 1",
         "10, 8, 9, 5, 3, 1",
         "13",
-        "9,7,5",
+        "9, 7, 5",
     ]
 )
 list_choices = list(pattern_set)
@@ -167,8 +167,8 @@ exit_button = ttk.Button(frame, text="Exit", command=sys.exit)
 exit_button.grid(column=0, row=8, columnspan=3)
 
 BALL_RADIUS = 5
-HAND_HALF_W = 8
-HAND_H = 5
+HAND_HALF_W = 10
+HAND_H = 8
 EDGE_BUFFER = 20
 ANIMATION_Y_MIN = EDGE_BUFFER
 ANIMATION_Y_MAX = CANVAS_HEIGHT - EDGE_BUFFER
@@ -222,22 +222,21 @@ class RunningAnimation:
         self.canvas.delete("all")
         balls = {}
         hands = {}
-        # TODO: Unique colors per ball and hand.
         for hand in range(self.animation.num_hands()):
             hands[hand] = self.canvas.create_rectangle(
-                -BALL_RADIUS,
-                -BALL_RADIUS,
-                BALL_RADIUS,
-                BALL_RADIUS,
+                -HAND_HALF_W,
+                0,
+                HAND_HALF_W,
+                HAND_H,
                 fill="green",
                 outline="blue",
             )
         for ball in range(self.animation.num_balls()):
             balls[ball] = self.canvas.create_oval(
-                -HAND_HALF_W,
-                0,
-                HAND_HALF_W,
-                HAND_H,
+                -BALL_RADIUS,
+                -BALL_RADIUS,
+                BALL_RADIUS,
+                BALL_RADIUS,
                 fill=self.ball_colors[ball % len(self.ball_colors)],
             )
         return {"hands": hands, "balls": balls}
@@ -299,5 +298,5 @@ class RunningAnimation:
 
 
 # todo: Choose from pattern set instead of using a string?
-run_pattern(canvas, "9,7,5")
+run_pattern(canvas, "9, 7, 5")
 root.mainloop()
