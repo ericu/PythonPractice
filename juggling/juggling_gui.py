@@ -8,12 +8,12 @@ import time
 from siteswap import SiteSwap, InputError
 
 root = tkinter.Tk()
-root.title("Test Window")
+root.title("Juggling SiteSwap Animator")
 
 frame = ttk.Frame(root, width=200)
 frame.grid(column=0, row=0)
 
-label = ttk.Label(frame, text="SiteSwap Animator")
+label = ttk.Label(frame, text="This program animates vanilla siteswaps.")
 label.grid(column=0, row=0, columnspan=2)
 
 CANVAS_WIDTH = 300
@@ -39,6 +39,8 @@ pattern_set = set(
         "5, 6, 1",
         "7, 5, 7, 1",
         "10, 8, 9, 5, 3, 1",
+        "13",
+        "9,7,5",
     ]
 )
 list_choices = list(pattern_set)
@@ -54,7 +56,7 @@ listbox["yscrollcommand"] = scrollbar.set
 
 canvas.grid(column=0, row=1, columnspan=2)
 
-input_label = ttk.Label(frame, text="Or input pattern")
+input_label = ttk.Label(frame, text="Or type a pattern")
 input_label.grid(column=0, row=3)
 input_pattern_var = tkinter.StringVar()
 input_pattern_entry = ttk.Entry(
@@ -78,7 +80,8 @@ class Spinbox(ttk.Entry):
 num_hands_label = ttk.Label(frame, text="Number of hands")
 num_hands_label.grid(column=0, row=4)
 num_hands_var = tkinter.StringVar(value=2)
-num_hands_selector = Spinbox(frame, from_=1, to=7, textvariable=num_hands_var)
+num_hands_selector = Spinbox(frame, from_=1, to=7, textvariable=num_hands_var,
+                             width=2)
 num_hands_selector.grid(column=1, row=4)
 
 
@@ -144,7 +147,7 @@ speed_slider = ttk.Scale(
     orient=HORIZONTAL,
     length=100,
     from_=0.5,
-    to=5,
+    to=10,
     variable=beats_per_second_var,
     command=lambda _: running_animation.set_speed(beats_per_second_var.get()),
 )
@@ -270,5 +273,5 @@ class RunningAnimation:
 
 
 # todo: Choose from pattern set instead of using a string?
-run_pattern(canvas, "4,4,1")
+run_pattern(canvas, "9,7,5")
 root.mainloop()
