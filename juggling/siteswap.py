@@ -437,6 +437,8 @@ class TestValidatePattern(unittest.TestCase):
     def test_animation(self):
         # Animations are quite complex to verify, so this just checks that we
         # don't throw while computing them.
+        # TODO: 5,0,1 fails with 3 or 6 hands, with error
+        # "Any time should have a hand location."
         SiteSwap([2, 8]).animation()
         SiteSwap([4, 4, 1]).animation()
         SiteSwap([5, 6, 1]).animation()
