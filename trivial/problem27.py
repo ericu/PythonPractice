@@ -1,19 +1,22 @@
 #!/usr/bin/python3
-import sys
 
 
-def drawHLine(length):
+def draw_h_line(length):
     return (length * " ---") + "\n"
 
 
-def drawDataLine(dataLine):
-    return "".join(map(lambda d: "| " + mark(d) + " ", dataLine)) + "|\n"
+def draw_data_line(data_line):
+    return "".join(map(lambda d: "| " + mark(d) + " ", data_line)) + "|\n"
 
 
-def drawBoard(data):
-    lineLen = len(data[0])
-    return drawHLine(lineLen) + "".join(
-        map(lambda dataLine: drawDataLine(dataLine) + drawHLine(lineLen), data)
+def draw_board(data):
+    line_len = len(data[0])
+    return draw_h_line(line_len) + "".join(
+        map(
+            lambda data_line: draw_data_line(data_line)
+            + draw_h_line(line_len),
+            data,
+        )
     )
 
 
@@ -21,17 +24,17 @@ def mark(index):
     return " XO"[index]
 
 
-def lineAllSame(line):
+def line_all_same(line):
     if line[0] == line[1] and line[1] == line[2] and line[0] != 0:
         return (True, line[0])
     return (False, None)
 
 
-def horizontalMatch(board):
+def horizontal_match(board):
     for i in range(0, 3):
-        (t, who) = lineAllSame(board[i])
-        if t:
-            return (t, who)
+        (found, who) = line_all_same(board[i])
+        if found:
+            return (found, who)
     return (False, None)
 
 
@@ -39,31 +42,31 @@ def invert(board):
     return [[board[x][y] for x in range(3)] for y in range(3)]
 
 
-def verticalMatch(board):
-    return horizontalMatch(invert(board))
+def vertical_match(board):
+    return horizontal_match(invert(board))
 
 
-def diagonalMatch(board):
-    (t, who) = lineAllSame([board[i][i] for i in range(3)])
-    if t:
-        return (t, who)
-    return lineAllSame([board[2 - i][i] for i in range(3)])
+def diagonal_match(board):
+    (found, who) = line_all_same([board[i][i] for i in range(3)])
+    if found:
+        return (found, who)
+    return line_all_same([board[2 - i][i] for i in range(3)])
 
 
 def match(board):
-    for f in [horizontalMatch, verticalMatch, diagonalMatch]:
-        (t, who) = f(board)
-        if t:
-            print("match returning winner", t, who, f)
-            return (t, who)
+    for func in [horizontal_match, vertical_match, diagonal_match]:
+        (found, who) = func(board)
+        if found:
+            print("match returning winner", found, who, func)
+            return (found, who)
     return (False, None)
 
 
-def showBoard(board):
-    print(drawBoard(board))
+def show_board(board):
+    print(draw_board(board))
 
 
-def boardFull(board):
+def board_full(board):
     for row in board:
         for entry in row:
             if not entry:
@@ -71,46 +74,44 @@ def boardFull(board):
     return True
 
 
-board = [3 * [0] for i in range(3)]
-
-# print('H?', horizontalMatch(sampleData))
-# print('V?', verticalMatch(sampleData))
-# print('D?', diagonalMatch(sampleData))
-# print('M?', match(sampleData))
-
-
-def nextPlayer(player):
+def next_player(player):
     return 3 - player
 
 
-player = 1
-print("Coordinates are 1-based, with [1,1] top left and [3, 1] top right.")
-while True:
-    showBoard(board)
-    inString = input(
-        "Enter move coords for player %s as x,y > " % mark(player)
-    )
-    try:
-        [x, y] = map(lambda s: int(s.strip()), inString.split(","))
-        cx = y - 1
-        cy = x - 1
-    except:
-        print("Bad input; try again.")
-        continue
-    if cx < 0 or cx > 2 or cy < 0 or cy > 2:
-        print("Illegal move--out of range.")
-        continue
-    if board[cx][cy]:
-        print("Illegal move--square already occupied.")
-        continue
-    board[y - 1][x - 1] = player
-    (win, winner) = match(board)
-    if win:
-        showBoard(board)
-        print("Player %s won." % mark(winner))
-        break
-    if boardFull(board):
-        showBoard(board)
-        print("Game over, a tie.")
-        break
-    player = nextPlayer(player)
+def main():
+    board = [3 * [0] for i in range(3)]
+    player = 1
+    print("Coordinates are 1-based, with [1,1] top left and [3, 1] top right.")
+    while True:
+        show_board(board)
+        in_string = input(
+            "Enter move coords for player %s as x,y > " % mark(player)
+        )
+        try:
+            [x, y] = map(lambda s: int(s.strip()), in_string.split(","))
+            c_x = y - 1
+            c_y = x - 1
+        except ValueError:
+            print("Bad input; try again.")
+            continue
+        if c_x < 0 or c_x > 2 or c_y < 0 or c_y > 2:
+            print("Illegal move--out of range.")
+            continue
+        if board[c_x][c_y]:
+            print("Illegal move--square already occupied.")
+            continue
+        board[y - 1][x - 1] = player
+        (win, winner) = match(board)
+        if win:
+            show_board(board)
+            print("Player %s won." % mark(winner))
+            break
+        if board_full(board):
+            show_board(board)
+            print("Game over, a tie.")
+            break
+        player = next_player(player)
+
+
+if __name__ == "__main__":
+    main()
