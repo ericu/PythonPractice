@@ -156,8 +156,6 @@ error_display.grid(column=0, row=7, columnspan=3)
 
 exit_button = ttk.Button(frame, text="Exit", command=sys.exit)
 exit_button.grid(column=0, row=8, columnspan=3)
-exit_button.bind("<Enter>", lambda e: exit_button.configure(text="Click me!"))
-exit_button.bind("<Leave>", lambda e: exit_button.configure(text="Exit"))
 
 BALL_RADIUS = 3
 HAND_HALF_W = 6
@@ -173,27 +171,6 @@ ANIMATION_HEIGHT = ANIMATION_Y_MAX - ANIMATION_Y_MIN
 FRAMES_PER_SECOND = 60
 
 
-def create_canvas_objects(canvas, animation):
-    canvas.delete("all")
-    balls = {}
-    hands = {}
-    # TODO: Unique colors per ball and hand.
-    for hand in range(animation.num_hands()):
-        hands[hand] = canvas.create_rectangle(
-            -BALL_RADIUS,
-            -BALL_RADIUS,
-            BALL_RADIUS,
-            BALL_RADIUS,
-            fill="green",
-            outline="blue",
-        )
-    for ball in range(animation.num_balls()):
-        balls[ball] = canvas.create_rectangle(
-            -HAND_HALF_W, 0, HAND_HALF_W, HAND_H, fill="red", outline="purple"
-        )
-    return {"hands": hands, "balls": balls}
-
-
 class RunningAnimation:
     def __init__(self, root, canvas, ss, beats_per_second):
         self.canvas = canvas
@@ -204,13 +181,34 @@ class RunningAnimation:
         self.start_time = time.time()  # Lacks resolution on some systems.
         # start_time_ns = time.time_ns() # Not available until 3.7
         self.animation = ss.animation()
-        self.canvas_objects = create_canvas_objects(
-            self.canvas, self.animation
-        )
+        self.canvas_objects = self.create_canvas_objects()
         (self.x_min, self.y_min, x_max, y_max) = self.animation.bounding_box()
         self.x_scale = ANIMATION_WIDTH / (x_max - self.x_min)
         self.y_scale = ANIMATION_HEIGHT / (y_max - self.y_min)
         self.request_redraw()
+
+
+    def create_canvas_objects(self):
+        self.canvas.delete("all")
+        balls = {}
+        hands = {}
+        # TODO: Unique colors per ball and hand.
+        for hand in range(self.animation.num_hands()):
+            hands[hand] = self.canvas.create_rectangle(
+                -BALL_RADIUS,
+                -BALL_RADIUS,
+                BALL_RADIUS,
+                BALL_RADIUS,
+                fill="green",
+                outline="blue",
+            )
+        for ball in range(self.animation.num_balls()):
+            balls[ball] = self.canvas.create_rectangle(
+                -HAND_HALF_W, 0, HAND_HALF_W, HAND_H,
+                fill="red", outline="purple"
+            )
+        return {"hands": hands, "balls": balls}
+
 
     def coords_to_canvas(self, coords):
         (x, y) = coords
@@ -259,7 +257,6 @@ class RunningAnimation:
         the slider moves.  To fix this, we change the start time so as to
         maintain where we are in the cycle."""
         if beats_per_second != self.beats_per_second:
-            print(beats_per_second)
             now = time.time()
             cycle_time = now - self.start_time
             cycle_beats = cycle_time * self.beats_per_second
