@@ -32,7 +32,7 @@ list_label.grid(column=0, row=2)
 pattern_set = set(
     [
         "4, 4, 1",
-        "1,9,1,5",
+        "1, 9, 1, 5", 
         "3",
         "6",
         "9",
@@ -80,7 +80,10 @@ num_hands_selector = Spinbox(frame, from_=1, to=7, textvariable=num_hands_var)
 num_hands_selector.grid(column=1, row=4)
 
 
-def run_pattern(text):
+running_animation = None
+
+def run_pattern(canvas, text):
+    global running_animation
     try:
         num_hands = int(num_hands_var.get())
         ss = SiteSwap.from_string(text, num_hands)
@@ -92,7 +95,9 @@ def run_pattern(text):
         listbox.see(cur_index)
         listbox.selection_clear(0, "end")
         listbox.selection_set(cur_index)
-        start_animation(ss)
+        running_animation = RunningAnimation(root, canvas, ss,
+                                             beats_per_second_var.get())
+        current_pattern_text.set(running_animation.pattern_string)
         error_text.set("")
     except InputError as error:
         error_text.set(error)
@@ -103,7 +108,7 @@ def on_select_pattern(_):
     if indices:
         (index,) = indices
         text = listbox.get(index)
-        run_pattern(text)
+        run_pattern(canvas, text)
 
 
 listbox.bind("<<ListboxSelect>>", on_select_pattern)
@@ -111,18 +116,14 @@ listbox.bind("<<ListboxSelect>>", on_select_pattern)
 
 def on_select_num_hands(_):
     # This delay lets the value in current_pattern_text update.
-    root.after(1, lambda: run_pattern(current_pattern_text.get()))
+    root.after(1, lambda: run_pattern(canvas, current_pattern_text.get()))
 
 
 num_hands_selector.bind("<<Increment>>", on_select_num_hands)
 num_hands_selector.bind("<<Decrement>>", on_select_num_hands)
 
-
-def run_input_pattern():
-    return run_pattern(input_pattern_var.get())
-
-
-input_pattern_entry.bind("<Return>", lambda x: run_input_pattern())
+input_pattern_entry.bind("<Return>",
+                         lambda x: run_pattern(canvas, input_pattern_var.get()))
 
 current_pattern_label = ttk.Label(frame, text="Current pattern")
 current_pattern_label.grid(column=0, row=5)
@@ -168,7 +169,7 @@ ANIMATION_HEIGHT = ANIMATION_Y_MAX - ANIMATION_Y_MIN
 FRAMES_PER_SECOND = 60
 
 
-def create_canvas_objects(animation):
+def create_canvas_objects(canvas, animation):
     canvas.delete("all")
     balls = {}
     hands = {}
@@ -189,57 +190,63 @@ def create_canvas_objects(animation):
     return {"hands": hands, "balls": balls}
 
 
-def start_animation(ss):
-    current_pattern_text.set(ss.pattern_string())
-    start_time = time.time()  # Supposedly lacks resolution on some systems.
+class RunningAnimation:
+
+  def __init__(self, root, canvas, ss, beats_per_second):
+    self.canvas = canvas
+    self.root = root
+    self.beats_per_second = beats_per_second
+    self.pattern_string = ss.pattern_string()
+
+    self.start_time = time.time()  # Lacks resolution on some systems.
     # start_time_ns = time.time_ns() # Not available until 3.7
-    animation = ss.animation()
-    canvas_objects = create_canvas_objects(animation)
-    (x_min, y_min, x_max, y_max) = animation.bounding_box()
-    x_scale = ANIMATION_WIDTH / (x_max - x_min)
-    y_scale = ANIMATION_HEIGHT / (y_max - y_min)
+    self.animation = ss.animation()
+    self.canvas_objects = create_canvas_objects(self.canvas, self.animation)
+    (self.x_min, self.y_min, x_max, y_max) = self.animation.bounding_box()
+    self.x_scale = ANIMATION_WIDTH / (x_max - self.x_min)
+    self.y_scale = ANIMATION_HEIGHT / (y_max - self.y_min)
+    self.request_redraw()
 
-    def coords_to_canvas(coords):
-        (x, y) = coords
-        return (
-            (x - x_min) * x_scale + ANIMATION_X_MIN,
-            ANIMATION_Y_MAX - (y - y_min) * y_scale,
-        )
+  def coords_to_canvas(self, coords):
+      (x, y) = coords
+      return (
+          (x - self.x_min) * self.x_scale + ANIMATION_X_MIN,
+          ANIMATION_Y_MAX - (y - self.y_min) * self.y_scale,
+      )
 
-    def redraw():
-        request_redraw()
-        cur_time = time.time()
-        dt = beats_per_second_var.get() * (cur_time - start_time)
-        draw(animation, dt, canvas_objects)
+  def redraw(self):
+      self.request_redraw()
+      cur_time = time.time()
+      dt = self.beats_per_second * (cur_time - self.start_time)
+      self.draw(dt)
 
-    def request_redraw():
-        # todo: This could use a frame counter to figure out how long to wait,
-        # in case we're drifting behind.
-        root.after(int(1000 / FRAMES_PER_SECOND), redraw)
+  def request_redraw(self):
+      self.root.after(int(1000 / FRAMES_PER_SECOND), lambda: self.redraw())
 
-    def draw(animation, at_time, objects):
-        for hand in range(animation.num_hands()):
-            (x, y) = coords_to_canvas(
-                animation.hand_location_at(hand, at_time)
-            )
-            x_0 = x - HAND_HALF_W
-            y_0 = y
-            x_1 = x + HAND_HALF_W
-            y_1 = y + HAND_H
-            canvas.coords(objects["hands"][hand], (x_0, y_0, x_1, y_1))
-        for ball in range(animation.num_balls()):
-            (x, y) = coords_to_canvas(
-                animation.ball_location_at(ball, at_time)
-            )
-            x_0 = x - BALL_RADIUS
-            y_0 = y - BALL_RADIUS
-            x_1 = x + BALL_RADIUS
-            y_1 = y + BALL_RADIUS
-            canvas.coords(objects["balls"][ball], (x_0, y_0, x_1, y_1))
+  def draw(self, at_time):
+      for hand in range(self.animation.num_hands()):
+          (x, y) = self.coords_to_canvas(
+              self.animation.hand_location_at(hand, at_time)
+          )
+          x_0 = x - HAND_HALF_W
+          y_0 = y
+          x_1 = x + HAND_HALF_W
+          y_1 = y + HAND_H
+          self.canvas.coords(self.canvas_objects["hands"][hand],
+                             (x_0, y_0, x_1, y_1))
+      for ball in range(self.animation.num_balls()):
+          (x, y) = self.coords_to_canvas(
+              self.animation.ball_location_at(ball, at_time)
+          )
+          x_0 = x - BALL_RADIUS
+          y_0 = y - BALL_RADIUS
+          x_1 = x + BALL_RADIUS
+          y_1 = y + BALL_RADIUS
+          self.canvas.coords(self.canvas_objects["balls"][ball],
+                             (x_0, y_0, x_1, y_1))
 
-    request_redraw()
 
 
 # todo: Choose from pattern set instead of using a string?
-run_pattern("4,4,1")
+run_pattern(canvas, "4,4,1")
 root.mainloop()
