@@ -108,17 +108,17 @@ def create_gui():
         nonlocal running_animation
         try:
             num_hands = int(num_hands_var.get())
-            ss = SiteSwap.from_string(text, num_hands)
-            pattern_set.add(ss.pattern_string())
+            siteswap = SiteSwap.from_string(text, num_hands)
+            pattern_set.add(siteswap.pattern_string())
             pattern_list = list(pattern_set)
             pattern_list.sort()
             list_choices_var.set(pattern_list)
-            cur_index = pattern_list.index(ss.pattern_string())
+            cur_index = pattern_list.index(siteswap.pattern_string())
             listbox.see(cur_index)
             listbox.selection_clear(0, "end")
             listbox.selection_set(cur_index)
             new_animation = RunningAnimation(
-                root, canvas, ss, beats_per_second_var.get()
+                root, canvas, siteswap, beats_per_second_var.get()
             )
             if running_animation:
                 running_animation.stop()
@@ -186,16 +186,16 @@ def create_gui():
 
 
 class RunningAnimation:
-    def __init__(self, root, canvas, ss, beats_per_second):
+    def __init__(self, root, canvas, siteswap, beats_per_second):
         self.stopped = False
         self.canvas = canvas
         self.root = root
         self.beats_per_second = beats_per_second
-        self.pattern_string = ss.pattern_string()
+        self.pattern_string = siteswap.pattern_string()
 
         self.start_time = time.time()  # Lacks resolution on some systems.
         # start_time_ns = time.time_ns() # Not available until 3.7
-        self.animation = ss.animation()
+        self.animation = siteswap.animation()
         self.canvas_objects = self.create_canvas_objects()
         (self.x_min, self.y_min, x_max, y_max) = self.animation.bounding_box()
         self.x_scale = ANIMATION_WIDTH / (x_max - self.x_min)
@@ -302,8 +302,11 @@ class RunningAnimation:
             self.beats_per_second = beats_per_second
 
 
-if __name__ == "__main__":
-    (ROOT, CANVAS, run_pattern_from_string) = create_gui()
+def main():
+    (root, canvas, run_pattern_from_string) = create_gui()
     # todo: Choose from pattern set instead of using a string?
-    run_pattern_from_string(CANVAS, "9, 7, 5")
-    ROOT.mainloop()
+    run_pattern_from_string(canvas, "9, 7, 5")
+    root.mainloop()
+
+if __name__ == "__main__":
+  main()
