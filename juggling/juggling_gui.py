@@ -32,7 +32,7 @@ list_label.grid(column=0, row=2)
 pattern_set = set(
     [
         "4, 4, 1",
-        "1, 9, 1, 5", 
+        "1, 9, 1, 5",
         "3",
         "6",
         "9",
@@ -82,6 +82,7 @@ num_hands_selector.grid(column=1, row=4)
 
 running_animation = None
 
+
 def run_pattern(canvas, text):
     global running_animation
     try:
@@ -95,8 +96,9 @@ def run_pattern(canvas, text):
         listbox.see(cur_index)
         listbox.selection_clear(0, "end")
         listbox.selection_set(cur_index)
-        running_animation = RunningAnimation(root, canvas, ss,
-                                             beats_per_second_var.get())
+        running_animation = RunningAnimation(
+            root, canvas, ss, beats_per_second_var.get()
+        )
         current_pattern_text.set(running_animation.pattern_string)
         error_text.set("")
     except InputError as error:
@@ -122,8 +124,9 @@ def on_select_num_hands(_):
 num_hands_selector.bind("<<Increment>>", on_select_num_hands)
 num_hands_selector.bind("<<Decrement>>", on_select_num_hands)
 
-input_pattern_entry.bind("<Return>",
-                         lambda x: run_pattern(canvas, input_pattern_var.get()))
+input_pattern_entry.bind(
+    "<Return>", lambda x: run_pattern(canvas, input_pattern_var.get())
+)
 
 current_pattern_label = ttk.Label(frame, text="Current pattern")
 current_pattern_label.grid(column=0, row=5)
@@ -141,6 +144,7 @@ speed_slider = ttk.Scale(
     from_=0.5,
     to=5,
     variable=beats_per_second_var,
+    command=lambda _: running_animation.set_speed(beats_per_second_var.get()),
 )
 speed_slider.grid(column=1, row=6, columnspan=2)
 
@@ -191,60 +195,77 @@ def create_canvas_objects(canvas, animation):
 
 
 class RunningAnimation:
+    def __init__(self, root, canvas, ss, beats_per_second):
+        self.canvas = canvas
+        self.root = root
+        self.beats_per_second = beats_per_second
+        self.pattern_string = ss.pattern_string()
 
-  def __init__(self, root, canvas, ss, beats_per_second):
-    self.canvas = canvas
-    self.root = root
-    self.beats_per_second = beats_per_second
-    self.pattern_string = ss.pattern_string()
+        self.start_time = time.time()  # Lacks resolution on some systems.
+        # start_time_ns = time.time_ns() # Not available until 3.7
+        self.animation = ss.animation()
+        self.canvas_objects = create_canvas_objects(
+            self.canvas, self.animation
+        )
+        (self.x_min, self.y_min, x_max, y_max) = self.animation.bounding_box()
+        self.x_scale = ANIMATION_WIDTH / (x_max - self.x_min)
+        self.y_scale = ANIMATION_HEIGHT / (y_max - self.y_min)
+        self.request_redraw()
 
-    self.start_time = time.time()  # Lacks resolution on some systems.
-    # start_time_ns = time.time_ns() # Not available until 3.7
-    self.animation = ss.animation()
-    self.canvas_objects = create_canvas_objects(self.canvas, self.animation)
-    (self.x_min, self.y_min, x_max, y_max) = self.animation.bounding_box()
-    self.x_scale = ANIMATION_WIDTH / (x_max - self.x_min)
-    self.y_scale = ANIMATION_HEIGHT / (y_max - self.y_min)
-    self.request_redraw()
+    def coords_to_canvas(self, coords):
+        (x, y) = coords
+        return (
+            (x - self.x_min) * self.x_scale + ANIMATION_X_MIN,
+            ANIMATION_Y_MAX - (y - self.y_min) * self.y_scale,
+        )
 
-  def coords_to_canvas(self, coords):
-      (x, y) = coords
-      return (
-          (x - self.x_min) * self.x_scale + ANIMATION_X_MIN,
-          ANIMATION_Y_MAX - (y - self.y_min) * self.y_scale,
-      )
+    def redraw(self):
+        self.request_redraw()
+        cur_time = time.time()
+        dt = self.beats_per_second * (cur_time - self.start_time)
+        self.draw(dt)
 
-  def redraw(self):
-      self.request_redraw()
-      cur_time = time.time()
-      dt = self.beats_per_second * (cur_time - self.start_time)
-      self.draw(dt)
+    def request_redraw(self):
+        self.root.after(int(1000 / FRAMES_PER_SECOND), lambda: self.redraw())
 
-  def request_redraw(self):
-      self.root.after(int(1000 / FRAMES_PER_SECOND), lambda: self.redraw())
+    def draw(self, at_time):
+        for hand in range(self.animation.num_hands()):
+            (x, y) = self.coords_to_canvas(
+                self.animation.hand_location_at(hand, at_time)
+            )
+            x_0 = x - HAND_HALF_W
+            y_0 = y
+            x_1 = x + HAND_HALF_W
+            y_1 = y + HAND_H
+            self.canvas.coords(
+                self.canvas_objects["hands"][hand], (x_0, y_0, x_1, y_1)
+            )
+        for ball in range(self.animation.num_balls()):
+            (x, y) = self.coords_to_canvas(
+                self.animation.ball_location_at(ball, at_time)
+            )
+            x_0 = x - BALL_RADIUS
+            y_0 = y - BALL_RADIUS
+            x_1 = x + BALL_RADIUS
+            y_1 = y + BALL_RADIUS
+            self.canvas.coords(
+                self.canvas_objects["balls"][ball], (x_0, y_0, x_1, y_1)
+            )
 
-  def draw(self, at_time):
-      for hand in range(self.animation.num_hands()):
-          (x, y) = self.coords_to_canvas(
-              self.animation.hand_location_at(hand, at_time)
-          )
-          x_0 = x - HAND_HALF_W
-          y_0 = y
-          x_1 = x + HAND_HALF_W
-          y_1 = y + HAND_H
-          self.canvas.coords(self.canvas_objects["hands"][hand],
-                             (x_0, y_0, x_1, y_1))
-      for ball in range(self.animation.num_balls()):
-          (x, y) = self.coords_to_canvas(
-              self.animation.ball_location_at(ball, at_time)
-          )
-          x_0 = x - BALL_RADIUS
-          y_0 = y - BALL_RADIUS
-          x_1 = x + BALL_RADIUS
-          y_1 = y + BALL_RADIUS
-          self.canvas.coords(self.canvas_objects["balls"][ball],
-                             (x_0, y_0, x_1, y_1))
-
+    def set_speed(self, beats_per_second):
+        """Because rendering is based on a fixed start time, in order to smooth
+        out timing variations in draw calls, if we just change the speed, we'll
+        change where we are in the cycle.  That leads to lots of flickering as
+        the slider moves.  To fix this, we change the start time so as to
+        maintain where we are in the cycle."""
+        if beats_per_second != self.beats_per_second:
+            print(beats_per_second)
+            now = time.time()
+            cycle_time = now - self.start_time
+            cycle_beats = cycle_time * self.beats_per_second
+            new_cycle_time = cycle_beats / beats_per_second
+            self.start_time = now - new_cycle_time
+            self.beats_per_second = beats_per_second
 
 
 # todo: Choose from pattern set instead of using a string?
