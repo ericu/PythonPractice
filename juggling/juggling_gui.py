@@ -20,8 +20,6 @@ FRAMES_PER_SECOND = 60
 
 def create_gui():
     running_animation = None
-    canvas_width = INITIAL_CANVAS_WIDTH
-    canvas_height = INITIAL_CANVAS_HEIGHT
 
     root = tk.Tk()
     root.title("Juggling SiteSwap Animator")
@@ -38,7 +36,10 @@ def create_gui():
     label.grid(column=0, row=0, columnspan=2)
 
     canvas = tk.Canvas(
-        frame, bg="black", height=canvas_height, width=canvas_width
+        frame,
+        bg="black",
+        height=INITIAL_CANVAS_HEIGHT,
+        width=INITIAL_CANVAS_WIDTH,
     )
     canvas.grid(column=0, row=1, columnspan=2, sticky=N + S + E + W)
 
@@ -123,8 +124,8 @@ def create_gui():
                 canvas,
                 siteswap,
                 beats_per_second_var.get(),
-                canvas_width,
-                canvas_height,
+                canvas.winfo_width(),
+                canvas.winfo_height(),
             )
             if running_animation:
                 running_animation.stop()
@@ -144,12 +145,14 @@ def create_gui():
     listbox.bind("<<ListboxSelect>>", on_select_pattern)
 
     current_num_hands = num_hands_var.get()
+
     def on_select_num_hands(e):
         def helper():
             nonlocal current_num_hands
             if num_hands_var.get() != current_num_hands:
                 current_num_hands = num_hands_var.get()
                 run_pattern(canvas, current_pattern_text.get())
+
         # This delay lets the value in num_hands_var update.
         root.after(1, helper)
 
@@ -191,8 +194,9 @@ def create_gui():
     exit_button = ttk.Button(frame, text="Exit", command=sys.exit)
     exit_button.grid(column=0, row=8, columnspan=3)
 
-    canvas.bind('<Configure>',
-                lambda e: running_animation.resize(e.width, e.height))
+    canvas.bind(
+        "<Configure>", lambda e: running_animation.resize(e.width, e.height)
+    )
     return (root, canvas, run_pattern)
 
 
