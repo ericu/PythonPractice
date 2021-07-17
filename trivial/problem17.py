@@ -3,8 +3,8 @@
 import requests
 from bs4 import BeautifulSoup
 
-url = "https://www.nytimes.com/"
-html = requests.get(url).text
+URL = "https://www.nytimes.com/"
+html = requests.get(URL).text
 soup = BeautifulSoup(html, features="html.parser")
 # print(soup.prettify())
 
