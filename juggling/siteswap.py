@@ -36,6 +36,13 @@ class Motion:
         self.start_pos = start_pos
         self.end_pos = end_pos
 
+    def __repr__(self):
+        type_name = type(self).__name__
+        return (
+            f"{type_name}({self.index!r},{self.duration!r},"
+            + f"{self.start_pos!r},{self.end_pos!r})"
+        )
+
     def covers(self, time, cycle_length):
         time %= cycle_length
         time_to_check = time if time >= self.index else time + cycle_length
@@ -196,7 +203,7 @@ class Animation:
 
 
 class SiteSwap:
-    """Class for representing asynchronous site-swap juggling patterns."""
+    """Class for representing vanilla site-swap juggling patterns."""
 
     @staticmethod
     def validate_pattern(pattern):
@@ -263,6 +270,8 @@ class SiteSwap:
         return self.Iterator(self.pattern)
 
     def analyze(self):
+        """Computes the orbits for each ball in the pattern and other basic
+        properties."""
         if len(self.pattern) % self.num_hands:
             # This makes sure each ball gets back to its original hand, not just
             # the starting spot in the numerical pattern.  todo: if the overage
@@ -422,6 +431,17 @@ class TestValidatePattern(unittest.TestCase):
         self.assertEqual(throws1[3].height, 4)
         self.assertEqual(throws1[3].index, 0)
 
+    def test_animation(self):
+        # Animations are quite complex to verify, so this just checks that we
+        # don't throw while computing them.
+        SiteSwap([2, 8]).animation()
+        SiteSwap([4, 4, 1]).animation()
+        SiteSwap([5, 6, 1]).animation()
+        SiteSwap([5, 6, 1], num_hands=3).animation()
+        SiteSwap([3]).animation()
+        SiteSwap([8], num_hands=5).animation()
+        SiteSwap([8]).animation()
+
 
 def _get_args():
     name = sys.argv[0]
@@ -442,26 +462,7 @@ def main():
     if args.unittest:
         unittest.main()
     elif args.test:
-        analysis = SiteSwap([2, 8]).analyze()
-        print("analysis", analysis)
-        print("paths", analysis_to_animation(analysis))
-        analysis = SiteSwap([4, 4, 1]).analyze()
-        print("analysis", analysis)
-        print("paths", analysis_to_animation(analysis))
-        analysis = SiteSwap([5, 6, 1]).analyze()
-        print("analysis", analysis)
-        print("paths", analysis_to_animation(analysis))
-        analysis = SiteSwap([5, 6, 1], num_hands=3).analyze()
-        print("analysis", analysis)
-        print("paths", analysis_to_animation(analysis))
-        # 3 is the only one I've hand-verified; others will wait for animation.
         analysis = SiteSwap([3]).analyze()
-        print("analysis", analysis)
-        print("paths", analysis_to_animation(analysis))
-        analysis = SiteSwap([8], num_hands=3).analyze()
-        print("analysis", analysis)
-        print("paths", analysis_to_animation(analysis))
-        analysis = SiteSwap([8]).analyze()
         print("analysis", analysis)
         print("paths", analysis_to_animation(analysis))
 
