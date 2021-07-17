@@ -22,24 +22,24 @@ ANIMATION_HEIGHT = ANIMATION_Y_MAX - ANIMATION_Y_MIN
 
 FRAMES_PER_SECOND = 60
 
-running_animation = None
-
-
 def create_gui():
-    ROOT = tk.Tk()
-    ROOT.title("Juggling SiteSwap Animator")
+    running_animation = None
+
+    root = tk.Tk()
+    root.title("Juggling SiteSwap Animator")
 
     # TODO: This doesn't appear to resize properly when stretched.
     # If we get the canvas to stretch, we'll have to re-scale the animation.
-    frame = ttk.Frame(ROOT, width=200)
+    frame = ttk.Frame(root, width=200)
     frame.grid(column=0, row=0, sticky=N + S + E + W)
 
     label = ttk.Label(frame, text="This program animates vanilla siteswaps.")
     label.grid(column=0, row=0, columnspan=2)
 
-    CANVAS = tk.Canvas(frame, bg="black",
-                       height=CANVAS_HEIGHT, width=CANVAS_WIDTH)
-    CANVAS.grid(column=0, row=1, columnspan=2, sticky=N + S + E + W)
+    canvas = tk.Canvas(
+        frame, bg="black", height=CANVAS_HEIGHT, width=CANVAS_WIDTH
+    )
+    canvas.grid(column=0, row=1, columnspan=2, sticky=N + S + E + W)
 
     list_frame = ttk.Frame(frame)
     list_frame.grid(column=1, row=2, sticky=E + W)
@@ -67,13 +67,13 @@ def create_gui():
     listbox = tk.Listbox(list_frame, height=4, listvariable=list_choices_var)
     listbox.grid(column=0, row=0)
 
-
-    scrollbar = ttk.Scrollbar(list_frame, orient=VERTICAL,
-                              command=listbox.yview)
+    scrollbar = ttk.Scrollbar(
+        list_frame, orient=VERTICAL, command=listbox.yview
+    )
     scrollbar.grid(column=1, row=0, sticky=N + S)
     listbox["yscrollcommand"] = scrollbar.set
 
-    CANVAS.grid(column=0, row=1, columnspan=2)
+    canvas.grid(column=0, row=1, columnspan=2)
 
     input_label = ttk.Label(frame, text="Or type a pattern")
     input_label.grid(column=0, row=3)
@@ -96,7 +96,6 @@ def create_gui():
         def set(self, value):
             self.tk.call(self._w, "set", value)
 
-
     num_hands_label = ttk.Label(frame, text="Number of hands")
     num_hands_label.grid(column=0, row=4)
     num_hands_var = tk.StringVar(value=2)
@@ -105,9 +104,8 @@ def create_gui():
     )
     num_hands_selector.grid(column=1, row=4)
 
-
     def run_pattern(canvas, text):
-        global running_animation
+        nonlocal running_animation
         try:
             num_hands = int(num_hands_var.get())
             ss = SiteSwap.from_string(text, num_hands)
@@ -120,7 +118,7 @@ def create_gui():
             listbox.selection_clear(0, "end")
             listbox.selection_set(cur_index)
             new_animation = RunningAnimation(
-                ROOT, canvas, ss, beats_per_second_var.get()
+                root, canvas, ss, beats_per_second_var.get()
             )
             if running_animation:
                 running_animation.stop()
@@ -130,36 +128,33 @@ def create_gui():
         except InputError as error:
             error_text.set(error)
 
-
     def on_select_pattern(_):
         indices = listbox.curselection()
         if indices:
             (index,) = indices
             text = listbox.get(index)
-            run_pattern(CANVAS, text)
-
+            run_pattern(canvas, text)
 
     listbox.bind("<<ListboxSelect>>", on_select_pattern)
-
 
     def on_select_num_hands(_):
         # This delay lets the value in current_pattern_text update.
         # TODO: Only trigger if the value has changed.
-        ROOT.after(1, lambda: run_pattern(CANVAS, current_pattern_text.get()))
-
+        root.after(1, lambda: run_pattern(canvas, current_pattern_text.get()))
 
     num_hands_selector.bind("<<Increment>>", on_select_num_hands)
     num_hands_selector.bind("<<Decrement>>", on_select_num_hands)
 
     input_pattern_entry.bind(
-        "<Return>", lambda x: run_pattern(CANVAS, input_pattern_var.get())
+        "<Return>", lambda x: run_pattern(canvas, input_pattern_var.get())
     )
 
     current_pattern_label = ttk.Label(frame, text="Current pattern")
     current_pattern_label.grid(column=0, row=5)
     current_pattern_text = tk.StringVar()
-    current_pattern_display = ttk.Label(frame,
-                                        textvariable=current_pattern_text)
+    current_pattern_display = ttk.Label(
+        frame, textvariable=current_pattern_text
+    )
     current_pattern_display.grid(column=1, row=5)
 
     speed_slider_label = ttk.Label(frame, text="Animation speed")
@@ -172,7 +167,9 @@ def create_gui():
         from_=0.5,
         to=10,
         variable=beats_per_second_var,
-        command=lambda _: running_animation.set_speed(beats_per_second_var.get()),
+        command=lambda _: running_animation.set_speed(
+            beats_per_second_var.get()
+        ),
     )
     speed_slider.grid(column=1, row=6, columnspan=2)
 
@@ -185,7 +182,7 @@ def create_gui():
     exit_button = ttk.Button(frame, text="Exit", command=sys.exit)
     exit_button.grid(column=0, row=8, columnspan=3)
 
-    return (ROOT, CANVAS, run_pattern)
+    return (root, canvas, run_pattern)
 
 
 class RunningAnimation:
@@ -305,7 +302,8 @@ class RunningAnimation:
             self.beats_per_second = beats_per_second
 
 
-(ROOT, CANVAS, run_pattern) = create_gui()
-# todo: Choose from pattern set instead of using a string?
-run_pattern(CANVAS, "9, 7, 5")
-ROOT.mainloop()
+if __name__ == "__main__":
+    (ROOT, CANVAS, run_pattern_from_string) = create_gui()
+    # todo: Choose from pattern set instead of using a string?
+    run_pattern_from_string(CANVAS, "9, 7, 5")
+    ROOT.mainloop()
