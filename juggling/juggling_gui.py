@@ -1,175 +1,18 @@
 #!/usr/bin/python3
 
-import tkinter
+import tkinter as tk
 from tkinter import ttk, N, S, E, W, HORIZONTAL, VERTICAL
 import sys
 import time
 
 from siteswap import SiteSwap, InputError
 
-root = tkinter.Tk()
-root.title("Juggling SiteSwap Animator")
-
-frame = ttk.Frame(root, width=200)
-frame.grid(column=0, row=0)
-
-label = ttk.Label(frame, text="This program animates vanilla siteswaps.")
-label.grid(column=0, row=0, columnspan=2)
-
-CANVAS_WIDTH = 300
-CANVAS_HEIGHT = 300
-canvas = tkinter.Canvas(
-    frame, bg="black", height=CANVAS_HEIGHT, width=CANVAS_WIDTH
-)
-canvas.grid(column=0, row=1, columnspan=2)
-
-list_frame = ttk.Frame(frame)
-list_frame.grid(column=1, row=2, sticky=(N, S, E, W))
-
-list_label = ttk.Label(frame, text="Choose pattern")
-list_label.grid(column=0, row=2)
-
-pattern_set = set(
-    [
-        "4, 4, 1",
-        "1, 9, 1, 5",
-        "3",
-        "6",
-        "9",
-        "5, 6, 1",
-        "7, 5, 7, 1",
-        "10, 8, 9, 5, 3, 1",
-        "13",
-        "9, 7, 5",
-    ]
-)
-list_choices = list(pattern_set)
-list_choices.sort()
-list_choices_var = tkinter.StringVar(value=list_choices)
-listbox = tkinter.Listbox(list_frame, height=4, listvariable=list_choices_var)
-listbox.grid(column=0, row=0, sticky=(N, S, E, W))
-
-
-scrollbar = ttk.Scrollbar(list_frame, orient=VERTICAL, command=listbox.yview)
-scrollbar.grid(column=1, row=0, sticky=(N, S))
-listbox["yscrollcommand"] = scrollbar.set
-
-canvas.grid(column=0, row=1, columnspan=2)
-
-input_label = ttk.Label(frame, text="Or type a pattern")
-input_label.grid(column=0, row=3)
-input_pattern_var = tkinter.StringVar()
-input_pattern_entry = ttk.Entry(
-    frame, width=10, textvariable=input_pattern_var
-)
-input_pattern_entry.grid(column=1, row=3)
-input_pattern_entry.focus()
-
-# Until Python 3.7, ttk lacks Spinbox; I'm running 3.6.9.
-# Spinbox class polyfill from https://stackoverflow.com/questions/52440314/ttk-spinbox-missing-in-tkinter-ttk/52440947
-# Licensed under https://creativecommons.org/licenses/by-sa/4.0/
-class Spinbox(ttk.Entry):
-    def __init__(self, master=None, **kw):
-
-        ttk.Entry.__init__(self, master, "ttk::spinbox", **kw)
-
-    def set(self, value):
-        self.tk.call(self._w, "set", value)
-
-
-num_hands_label = ttk.Label(frame, text="Number of hands")
-num_hands_label.grid(column=0, row=4)
-num_hands_var = tkinter.StringVar(value=2)
-num_hands_selector = Spinbox(frame, from_=1, to=7, textvariable=num_hands_var,
-                             width=2)
-num_hands_selector.grid(column=1, row=4)
-
-
-running_animation = None
-
-
-def run_pattern(canvas, text):
-    global running_animation
-    try:
-        num_hands = int(num_hands_var.get())
-        ss = SiteSwap.from_string(text, num_hands)
-        pattern_set.add(ss.pattern_string())
-        pattern_list = list(pattern_set)
-        pattern_list.sort()
-        list_choices_var.set(pattern_list)
-        cur_index = pattern_list.index(ss.pattern_string())
-        listbox.see(cur_index)
-        listbox.selection_clear(0, "end")
-        listbox.selection_set(cur_index)
-        new_animation = RunningAnimation(
-            root, canvas, ss, beats_per_second_var.get()
-        )
-        if running_animation:
-          running_animation.stop()
-        running_animation = new_animation
-        current_pattern_text.set(running_animation.pattern_string)
-        error_text.set("")
-    except InputError as error:
-        error_text.set(error)
-
-
-def on_select_pattern(_):
-    indices = listbox.curselection()
-    if indices:
-        (index,) = indices
-        text = listbox.get(index)
-        run_pattern(canvas, text)
-
-
-listbox.bind("<<ListboxSelect>>", on_select_pattern)
-
-
-def on_select_num_hands(_):
-    # This delay lets the value in current_pattern_text update.
-    # TODO: Only trigger if the value has changed.
-    root.after(1, lambda: run_pattern(canvas, current_pattern_text.get()))
-
-
-num_hands_selector.bind("<<Increment>>", on_select_num_hands)
-num_hands_selector.bind("<<Decrement>>", on_select_num_hands)
-
-input_pattern_entry.bind(
-    "<Return>", lambda x: run_pattern(canvas, input_pattern_var.get())
-)
-
-current_pattern_label = ttk.Label(frame, text="Current pattern")
-current_pattern_label.grid(column=0, row=5)
-current_pattern_text = tkinter.StringVar()
-current_pattern_display = ttk.Label(frame, textvariable=current_pattern_text)
-current_pattern_display.grid(column=1, row=5)
-
-speed_slider_label = ttk.Label(frame, text="Animation speed")
-speed_slider_label.grid(column=0, row=6)
-beats_per_second_var = tkinter.DoubleVar(value=3)
-speed_slider = ttk.Scale(
-    frame,
-    orient=HORIZONTAL,
-    length=100,
-    from_=0.5,
-    to=10,
-    variable=beats_per_second_var,
-    command=lambda _: running_animation.set_speed(beats_per_second_var.get()),
-)
-speed_slider.grid(column=1, row=6, columnspan=2)
-
-# TODO: Error text will stretch the window out oddly if it's long; adjust
-# centering.
-error_text = tkinter.StringVar()
-error_display = ttk.Label(frame, textvariable=error_text)
-error_display.grid(column=0, row=7, columnspan=3)
-
-exit_button = ttk.Button(frame, text="Exit", command=sys.exit)
-exit_button.grid(column=0, row=8, columnspan=3)
-
 BALL_RADIUS = 5
 HAND_HALF_W = 10
 HAND_H = 8
 EDGE_BUFFER = 20
+CANVAS_WIDTH = 300
+CANVAS_HEIGHT = 300
 ANIMATION_Y_MIN = EDGE_BUFFER
 ANIMATION_Y_MAX = CANVAS_HEIGHT - EDGE_BUFFER
 ANIMATION_X_MIN = EDGE_BUFFER
@@ -178,6 +21,171 @@ ANIMATION_WIDTH = ANIMATION_X_MAX - ANIMATION_X_MIN
 ANIMATION_HEIGHT = ANIMATION_Y_MAX - ANIMATION_Y_MIN
 
 FRAMES_PER_SECOND = 60
+
+running_animation = None
+
+
+def create_gui():
+    ROOT = tk.Tk()
+    ROOT.title("Juggling SiteSwap Animator")
+
+    # TODO: This doesn't appear to resize properly when stretched.
+    # If we get the canvas to stretch, we'll have to re-scale the animation.
+    frame = ttk.Frame(ROOT, width=200)
+    frame.grid(column=0, row=0, sticky=N + S + E + W)
+
+    label = ttk.Label(frame, text="This program animates vanilla siteswaps.")
+    label.grid(column=0, row=0, columnspan=2)
+
+    CANVAS = tk.Canvas(frame, bg="black",
+                       height=CANVAS_HEIGHT, width=CANVAS_WIDTH)
+    CANVAS.grid(column=0, row=1, columnspan=2, sticky=N + S + E + W)
+
+    list_frame = ttk.Frame(frame)
+    list_frame.grid(column=1, row=2, sticky=E + W)
+
+    list_label = ttk.Label(frame, text="Choose pattern")
+    list_label.grid(column=0, row=2)
+
+    pattern_set = set(
+        [
+            "4, 4, 1",
+            "1, 9, 1, 5",
+            "3",
+            "6",
+            "9",
+            "5, 6, 1",
+            "7, 5, 7, 1",
+            "10, 8, 9, 5, 3, 1",
+            "13",
+            "9, 7, 5",
+        ]
+    )
+    list_choices = list(pattern_set)
+    list_choices.sort()
+    list_choices_var = tk.StringVar(value=list_choices)
+    listbox = tk.Listbox(list_frame, height=4, listvariable=list_choices_var)
+    listbox.grid(column=0, row=0)
+
+
+    scrollbar = ttk.Scrollbar(list_frame, orient=VERTICAL,
+                              command=listbox.yview)
+    scrollbar.grid(column=1, row=0, sticky=N + S)
+    listbox["yscrollcommand"] = scrollbar.set
+
+    CANVAS.grid(column=0, row=1, columnspan=2)
+
+    input_label = ttk.Label(frame, text="Or type a pattern")
+    input_label.grid(column=0, row=3)
+    input_pattern_var = tk.StringVar()
+    input_pattern_entry = ttk.Entry(
+        frame, width=10, textvariable=input_pattern_var
+    )
+    input_pattern_entry.grid(column=1, row=3)
+    input_pattern_entry.focus()
+
+    # Until Python 3.7, ttk lacks Spinbox; I'm running 3.6.9.
+    # Spinbox class polyfill from
+    # https://stackoverflow.com/questions/52440314/ttk-spinbox-missing-in-tkinter-ttk/52440947
+    # Licensed under https://creativecommons.org/licenses/by-sa/4.0/
+    class Spinbox(ttk.Entry):
+        def __init__(self, master=None, **kw):
+
+            ttk.Entry.__init__(self, master, "ttk::spinbox", **kw)
+
+        def set(self, value):
+            self.tk.call(self._w, "set", value)
+
+
+    num_hands_label = ttk.Label(frame, text="Number of hands")
+    num_hands_label.grid(column=0, row=4)
+    num_hands_var = tk.StringVar(value=2)
+    num_hands_selector = Spinbox(
+        frame, from_=1, to=7, textvariable=num_hands_var, width=2
+    )
+    num_hands_selector.grid(column=1, row=4)
+
+
+    def run_pattern(canvas, text):
+        global running_animation
+        try:
+            num_hands = int(num_hands_var.get())
+            ss = SiteSwap.from_string(text, num_hands)
+            pattern_set.add(ss.pattern_string())
+            pattern_list = list(pattern_set)
+            pattern_list.sort()
+            list_choices_var.set(pattern_list)
+            cur_index = pattern_list.index(ss.pattern_string())
+            listbox.see(cur_index)
+            listbox.selection_clear(0, "end")
+            listbox.selection_set(cur_index)
+            new_animation = RunningAnimation(
+                ROOT, canvas, ss, beats_per_second_var.get()
+            )
+            if running_animation:
+                running_animation.stop()
+            running_animation = new_animation
+            current_pattern_text.set(running_animation.pattern_string)
+            error_text.set("")
+        except InputError as error:
+            error_text.set(error)
+
+
+    def on_select_pattern(_):
+        indices = listbox.curselection()
+        if indices:
+            (index,) = indices
+            text = listbox.get(index)
+            run_pattern(CANVAS, text)
+
+
+    listbox.bind("<<ListboxSelect>>", on_select_pattern)
+
+
+    def on_select_num_hands(_):
+        # This delay lets the value in current_pattern_text update.
+        # TODO: Only trigger if the value has changed.
+        ROOT.after(1, lambda: run_pattern(CANVAS, current_pattern_text.get()))
+
+
+    num_hands_selector.bind("<<Increment>>", on_select_num_hands)
+    num_hands_selector.bind("<<Decrement>>", on_select_num_hands)
+
+    input_pattern_entry.bind(
+        "<Return>", lambda x: run_pattern(CANVAS, input_pattern_var.get())
+    )
+
+    current_pattern_label = ttk.Label(frame, text="Current pattern")
+    current_pattern_label.grid(column=0, row=5)
+    current_pattern_text = tk.StringVar()
+    current_pattern_display = ttk.Label(frame,
+                                        textvariable=current_pattern_text)
+    current_pattern_display.grid(column=1, row=5)
+
+    speed_slider_label = ttk.Label(frame, text="Animation speed")
+    speed_slider_label.grid(column=0, row=6)
+    beats_per_second_var = tk.DoubleVar(value=3)
+    speed_slider = ttk.Scale(
+        frame,
+        orient=HORIZONTAL,
+        length=100,
+        from_=0.5,
+        to=10,
+        variable=beats_per_second_var,
+        command=lambda _: running_animation.set_speed(beats_per_second_var.get()),
+    )
+    speed_slider.grid(column=1, row=6, columnspan=2)
+
+    # TODO: Error text will stretch the window out oddly if it's long; adjust
+    # centering.
+    error_text = tk.StringVar()
+    error_display = ttk.Label(frame, textvariable=error_text)
+    error_display.grid(column=0, row=7, columnspan=3)
+
+    exit_button = ttk.Button(frame, text="Exit", command=sys.exit)
+    exit_button.grid(column=0, row=8, columnspan=3)
+
+    return (ROOT, CANVAS, run_pattern)
 
 
 class RunningAnimation:
@@ -198,21 +206,21 @@ class RunningAnimation:
         self.request_redraw()
 
     ball_colors = [
-      'sky blue',
-      'medium orchid',
-      'coral',
-      'salmon',
-      'LemonChiffon2',
-      'thistle',
-      'pink',
-      'PeachPuff2',
-      'honeydew3',
-      'gold',
-      'lawn green',
-      'olive drab',
-      'light goldenrod',
-      'red',
-      'turquoise'
+        "sky blue",
+        "medium orchid",
+        "coral",
+        "salmon",
+        "LemonChiffon2",
+        "thistle",
+        "pink",
+        "PeachPuff2",
+        "honeydew3",
+        "gold",
+        "lawn green",
+        "olive drab",
+        "light goldenrod",
+        "red",
+        "turquoise",
     ]
 
     def stop(self):
@@ -297,6 +305,7 @@ class RunningAnimation:
             self.beats_per_second = beats_per_second
 
 
+(ROOT, CANVAS, run_pattern) = create_gui()
 # todo: Choose from pattern set instead of using a string?
-run_pattern(canvas, "9, 7, 5")
-root.mainloop()
+run_pattern(CANVAS, "9, 7, 5")
+ROOT.mainloop()
