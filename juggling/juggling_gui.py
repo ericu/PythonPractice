@@ -34,6 +34,7 @@ def create_gui():
     frame = ttk.Frame(root, width=200, borderwidth=3)
     frame.grid(column=0, row=0, sticky=N + S + E + W)
     frame.grid_columnconfigure(0, weight=1)
+    frame.grid_columnconfigure(1, weight=1)
     frame.grid_rowconfigure(1, weight=1)
 
     label = ttk.Label(frame, text="This program animates vanilla siteswaps.")
@@ -45,7 +46,7 @@ def create_gui():
     canvas.grid(column=0, row=1, columnspan=2, sticky=N + S + E + W)
 
     list_frame = ttk.Frame(frame)
-    list_frame.grid(column=1, row=2, sticky=E + W)
+    list_frame.grid(column=1, row=2)
 
     list_label = ttk.Label(frame, text="Choose pattern")
     list_label.grid(column=0, row=2)
