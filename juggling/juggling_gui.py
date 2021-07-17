@@ -189,7 +189,6 @@ class RunningAnimation:
         self.y_scale = ANIMATION_HEIGHT / (y_max - self.y_min)
         self.request_redraw()
 
-
     def create_canvas_objects(self):
         self.canvas.delete("all")
         balls = {}
@@ -206,11 +205,14 @@ class RunningAnimation:
             )
         for ball in range(self.animation.num_balls()):
             balls[ball] = self.canvas.create_rectangle(
-                -HAND_HALF_W, 0, HAND_HALF_W, HAND_H,
-                fill="red", outline="purple"
+                -HAND_HALF_W,
+                0,
+                HAND_HALF_W,
+                HAND_H,
+                fill="red",
+                outline="purple",
             )
         return {"hands": hands, "balls": balls}
-
 
     def coords_to_canvas(self, coords):
         (x, y) = coords
