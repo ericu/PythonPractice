@@ -63,7 +63,9 @@ input_pattern_entry = ttk.Entry(
 input_pattern_entry.grid(column=1, row=3)
 input_pattern_entry.focus()
 
-# Until Python 3.7, ttk lacks Spinbox.
+# Until Python 3.7, ttk lacks Spinbox; I'm running 3.6.9.
+# Spinbox class polyfill from https://stackoverflow.com/questions/52440314/ttk-spinbox-missing-in-tkinter-ttk/52440947
+# Licensed under https://creativecommons.org/licenses/by-sa/4.0/
 class Spinbox(ttk.Entry):
     def __init__(self, master=None, **kw):
 
