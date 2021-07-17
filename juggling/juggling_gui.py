@@ -28,7 +28,6 @@ def create_gui():
     root.grid_columnconfigure(0, weight=1)
     root.grid_rowconfigure(0, weight=1)
 
-    # TODO: re-scale the animation as the canvas stretches.
     frame = ttk.Frame(root, width=200, borderwidth=3)
     frame.grid(column=0, row=0, sticky=N + S + E + W)
     frame.grid_columnconfigure(0, weight=1)
@@ -102,7 +101,7 @@ def create_gui():
     num_hands_label.grid(column=0, row=4)
     num_hands_var = tk.StringVar(value=2)
     num_hands_selector = Spinbox(
-        frame, from_=1, to=7, textvariable=num_hands_var, width=2
+        frame, from_=2, to=7, textvariable=num_hands_var, width=2
     )
     num_hands_selector.grid(column=1, row=4)
 
@@ -144,10 +143,15 @@ def create_gui():
 
     listbox.bind("<<ListboxSelect>>", on_select_pattern)
 
-    def on_select_num_hands(_):
-        # This delay lets the value in current_pattern_text update.
-        # TODO: Only trigger if the value has changed.
-        root.after(1, lambda: run_pattern(canvas, current_pattern_text.get()))
+    current_num_hands = num_hands_var.get()
+    def on_select_num_hands(e):
+        def helper():
+            nonlocal current_num_hands
+            if num_hands_var.get() != current_num_hands:
+                current_num_hands = num_hands_var.get()
+                run_pattern(canvas, current_pattern_text.get())
+        # This delay lets the value in num_hands_var update.
+        root.after(1, helper)
 
     num_hands_selector.bind("<<Increment>>", on_select_num_hands)
     num_hands_selector.bind("<<Decrement>>", on_select_num_hands)
@@ -180,8 +184,6 @@ def create_gui():
     )
     speed_slider.grid(column=1, row=6, columnspan=2)
 
-    # TODO: Error text will stretch the window out oddly if it's long; adjust
-    # centering.
     error_text = tk.StringVar()
     error_display = ttk.Label(frame, textvariable=error_text)
     error_display.grid(column=0, row=7, columnspan=3)

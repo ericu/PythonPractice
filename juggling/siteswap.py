@@ -233,6 +233,13 @@ class SiteSwap:
     @staticmethod
     def from_string(string_pattern, num_hands=2):
         """Produces a SiteSwap from a comma-separated list of natural numbers."""
+        # To support 1-handed patterns, we'd have to tweak the timing somewhat
+        # to force a pause to get from throw position to catch position.  For
+        # multi-handed patterns, that pause is the time in which all other hands
+        # get to throw once.  If we're going to handle that, we may as well go
+        # all the way to supporting simultaneous patterns as well.
+        if num_hands < 2:
+          raise InputError("Must have at least two hands.")
         # todo: Would be nice to split on comma *or* whitespace.
         as_strings = [s.strip() for s in string_pattern.split(",")]
         try:
