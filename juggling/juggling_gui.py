@@ -101,9 +101,12 @@ def run_pattern(canvas, text):
         listbox.see(cur_index)
         listbox.selection_clear(0, "end")
         listbox.selection_set(cur_index)
-        running_animation = RunningAnimation(
+        new_animation = RunningAnimation(
             root, canvas, ss, beats_per_second_var.get()
         )
+        if running_animation:
+          running_animation.stop()
+        running_animation = new_animation
         current_pattern_text.set(running_animation.pattern_string)
         error_text.set("")
     except InputError as error:
@@ -123,6 +126,7 @@ listbox.bind("<<ListboxSelect>>", on_select_pattern)
 
 def on_select_num_hands(_):
     # This delay lets the value in current_pattern_text update.
+    # TODO: Only trigger if the value has changed.
     root.after(1, lambda: run_pattern(canvas, current_pattern_text.get()))
 
 
@@ -162,10 +166,10 @@ error_display.grid(column=0, row=7, columnspan=3)
 exit_button = ttk.Button(frame, text="Exit", command=sys.exit)
 exit_button.grid(column=0, row=8, columnspan=3)
 
-BALL_RADIUS = 3
-HAND_HALF_W = 6
-HAND_H = 4
-EDGE_BUFFER = 15
+BALL_RADIUS = 5
+HAND_HALF_W = 8
+HAND_H = 5
+EDGE_BUFFER = 20
 ANIMATION_Y_MIN = EDGE_BUFFER
 ANIMATION_Y_MAX = CANVAS_HEIGHT - EDGE_BUFFER
 ANIMATION_X_MIN = EDGE_BUFFER
@@ -178,6 +182,7 @@ FRAMES_PER_SECOND = 60
 
 class RunningAnimation:
     def __init__(self, root, canvas, ss, beats_per_second):
+        self.stopped = False
         self.canvas = canvas
         self.root = root
         self.beats_per_second = beats_per_second
@@ -191,6 +196,27 @@ class RunningAnimation:
         self.x_scale = ANIMATION_WIDTH / (x_max - self.x_min)
         self.y_scale = ANIMATION_HEIGHT / (y_max - self.y_min)
         self.request_redraw()
+
+    ball_colors = [
+      'sky blue',
+      'medium orchid',
+      'coral',
+      'salmon',
+      'LemonChiffon2',
+      'thistle',
+      'pink',
+      'PeachPuff2',
+      'honeydew3',
+      'gold',
+      'lawn green',
+      'olive drab',
+      'light goldenrod',
+      'red',
+      'turquoise'
+    ]
+
+    def stop(self):
+        self.stopped = True
 
     def create_canvas_objects(self):
         self.canvas.delete("all")
@@ -207,13 +233,12 @@ class RunningAnimation:
                 outline="blue",
             )
         for ball in range(self.animation.num_balls()):
-            balls[ball] = self.canvas.create_rectangle(
+            balls[ball] = self.canvas.create_oval(
                 -HAND_HALF_W,
                 0,
                 HAND_HALF_W,
                 HAND_H,
-                fill="red",
-                outline="purple",
+                fill=self.ball_colors[ball % len(self.ball_colors)],
             )
         return {"hands": hands, "balls": balls}
 
@@ -225,10 +250,11 @@ class RunningAnimation:
         )
 
     def redraw(self):
-        self.request_redraw()
-        cur_time = time.time()
-        dt = self.beats_per_second * (cur_time - self.start_time)
-        self.draw(dt)
+        if not self.stopped:
+            self.request_redraw()
+            cur_time = time.time()
+            dt = self.beats_per_second * (cur_time - self.start_time)
+            self.draw(dt)
 
     def request_redraw(self):
         self.root.after(int(1000 / FRAMES_PER_SECOND), lambda: self.redraw())
