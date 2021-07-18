@@ -3,6 +3,7 @@ from collections import namedtuple
 from functools import reduce
 import argparse
 import math
+import re
 import sys
 import unittest
 
@@ -225,10 +226,8 @@ class SiteSwap:
     @staticmethod
     def from_string(string_pattern, num_hands=2):
         """Produces a SiteSwap from a comma-separated list of natural numbers."""
-        # todo: Would be nice to split on comma *or* whitespace.
-        as_strings = [s.strip() for s in string_pattern.split(",")]
         try:
-            pattern = [int(i) for i in as_strings if len(i)]
+            pattern = [int(i) for i in re.split(r"[ ,]+", string_pattern)]
         except ValueError as error:
             raise InputError("Invalid pattern string") from error
         return SiteSwap(pattern, num_hands)
