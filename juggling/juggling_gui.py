@@ -196,7 +196,7 @@ def create_gui():
     exit_button.grid(column=0, row=8, columnspan=3)
 
     canvas.bind(
-        "<Configure>", lambda e: running_animation.resize((e.width, e.height))
+        "<Configure>", lambda e: running_animation.resize([e.width, e.height])
     )
     return (root, canvas, run_pattern)
 
@@ -210,8 +210,7 @@ class RunningAnimation:
         self.root = root
         self.beats_per_second = beats_per_second
         self.pattern_string = siteswap.pattern_string()
-        self.canvas_width = None
-        self.canvas_height = None
+        self.canvas_dimensions = None
 
         self.start_time = time.time()  # Lacks resolution on some systems.
         # start_time_ns = time.time_ns() # Not available until 3.7
@@ -222,28 +221,22 @@ class RunningAnimation:
         self.request_redraw()
 
     def resize(self, canvas_dimensions):
-        canvas_width, canvas_height = canvas_dimensions
-        if (
-            self.canvas_width != canvas_width
-            or self.canvas_height != canvas_height
-        ):
+        if (self.canvas_dimensions is None) or (
+            self.canvas_dimensions != canvas_dimensions
+        ).any():
 
-            # TODO: Clean up naming here.
-            (self.minima, maxima) = self.animation.bounding_box()
-            self.canvas_width = canvas_width
-            self.canvas_height = canvas_height
-            animation_y_min = EDGE_BUFFER
-            self.animation_y_max = self.canvas_height - EDGE_BUFFER
-            self.animation_x_min = EDGE_BUFFER
-            animation_x_max = self.canvas_width - EDGE_BUFFER
-            animation_size = np.array(
-                [
-                    animation_x_max - self.animation_x_min,
-                    self.animation_y_max - animation_y_min,
-                ]
+            (
+                self.animation_minima,
+                animation_maxima,
+            ) = self.animation.bounding_box()
+            self.canvas_dimensions = np.array(canvas_dimensions)
+            edge_buffer = np.array([EDGE_BUFFER, EDGE_BUFFER])
+            self.drawing_minima = edge_buffer
+            self.drawing_maxima = self.canvas_dimensions - edge_buffer
+            drawing_size = self.drawing_maxima - self.drawing_minima
+            self.scale = drawing_size / (
+                animation_maxima - self.animation_minima
             )
-
-            self.scale = animation_size / (maxima - self.minima)
 
     ball_colors = [
         "sky blue",
@@ -290,8 +283,11 @@ class RunningAnimation:
         return {"hands": hands, "balls": balls}
 
     def coords_to_canvas(self, coords):
-        delta_x, delta_y = (coords - self.minima) * self.scale
-        return (delta_x + self.animation_x_min, self.animation_y_max - delta_y)
+        delta_x, delta_y = (coords - self.animation_minima) * self.scale
+        return (
+            delta_x + self.drawing_minima[0],
+            self.drawing_maxima[1] - delta_y,
+        )
 
     def redraw(self):
         if not self.stopped:
