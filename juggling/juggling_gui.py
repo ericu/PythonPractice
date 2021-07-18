@@ -1,9 +1,11 @@
 #!/usr/bin/python3
 
-import tkinter as tk
 from tkinter import ttk, N, S, E, W, HORIZONTAL, VERTICAL
 import sys
 import time
+import tkinter as tk
+
+import numpy as np
 
 from siteswap import SiteSwap, InputError
 
@@ -124,8 +126,7 @@ def create_gui():
                 canvas,
                 siteswap,
                 beats_per_second_var.get(),
-                canvas.winfo_width(),
-                canvas.winfo_height(),
+                (canvas.winfo_width(), canvas.winfo_height()),
             )
             if running_animation:
                 running_animation.stop()
@@ -146,7 +147,7 @@ def create_gui():
 
     current_num_hands = num_hands_var.get()
 
-    def on_select_num_hands(e):
+    def on_select_num_hands(_):
         def helper():
             nonlocal current_num_hands
             if num_hands_var.get() != current_num_hands:
@@ -195,20 +196,14 @@ def create_gui():
     exit_button.grid(column=0, row=8, columnspan=3)
 
     canvas.bind(
-        "<Configure>", lambda e: running_animation.resize(e.width, e.height)
+        "<Configure>", lambda e: running_animation.resize((e.width, e.height))
     )
     return (root, canvas, run_pattern)
 
 
 class RunningAnimation:
     def __init__(
-        self,
-        root,
-        canvas,
-        siteswap,
-        beats_per_second,
-        canvas_width,
-        canvas_height,
+        self, root, canvas, siteswap, beats_per_second, canvas_dimensions
     ):
         self.stopped = False
         self.canvas = canvas
@@ -223,32 +218,32 @@ class RunningAnimation:
         self.animation = siteswap.animation()
         self.canvas_objects = self.create_canvas_objects()
 
-        self.resize(canvas_width, canvas_height)
+        self.resize(canvas_dimensions)
         self.request_redraw()
 
-    def resize(self, canvas_width, canvas_height):
+    def resize(self, canvas_dimensions):
+        canvas_width, canvas_height = canvas_dimensions
         if (
             self.canvas_width != canvas_width
             or self.canvas_height != canvas_height
         ):
 
-            (
-                self.x_min,
-                self.y_min,
-                x_max,
-                y_max,
-            ) = self.animation.bounding_box()
+            # TODO: Clean up naming here.
+            (self.minima, maxima) = self.animation.bounding_box()
             self.canvas_width = canvas_width
             self.canvas_height = canvas_height
             animation_y_min = EDGE_BUFFER
             self.animation_y_max = self.canvas_height - EDGE_BUFFER
             self.animation_x_min = EDGE_BUFFER
             animation_x_max = self.canvas_width - EDGE_BUFFER
-            animation_width = animation_x_max - self.animation_x_min
-            animation_height = self.animation_y_max - animation_y_min
+            animation_size = np.array(
+                [
+                    animation_x_max - self.animation_x_min,
+                    self.animation_y_max - animation_y_min,
+                ]
+            )
 
-            self.x_scale = animation_width / (x_max - self.x_min)
-            self.y_scale = animation_height / (y_max - self.y_min)
+            self.scale = animation_size / (maxima - self.minima)
 
     ball_colors = [
         "sky blue",
@@ -295,18 +290,15 @@ class RunningAnimation:
         return {"hands": hands, "balls": balls}
 
     def coords_to_canvas(self, coords):
-        (x, y) = coords
-        return (
-            (x - self.x_min) * self.x_scale + self.animation_x_min,
-            self.animation_y_max - (y - self.y_min) * self.y_scale,
-        )
+        delta_x, delta_y = (coords - self.minima) * self.scale
+        return (delta_x + self.animation_x_min, self.animation_y_max - delta_y)
 
     def redraw(self):
         if not self.stopped:
             self.request_redraw()
             cur_time = time.time()
-            dt = self.beats_per_second * (cur_time - self.start_time)
-            self.draw(dt)
+            d_t = self.beats_per_second * (cur_time - self.start_time)
+            self.draw(d_t)
 
     def request_redraw(self):
         self.root.after(int(1000 / FRAMES_PER_SECOND), lambda: self.redraw())

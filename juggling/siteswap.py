@@ -1,11 +1,13 @@
 #!/usr/bin/python3
-import unittest
-import argparse
+from collections import namedtuple
 from functools import reduce
+import argparse
 import math
 import sys
-from collections import namedtuple
+import unittest
+
 from more_itertools import take
+import numpy as np
 
 
 class InputError(Exception):
@@ -33,6 +35,7 @@ class Motion:
         self.end_time = time + duration
         self.start_pos = start_pos
         self.end_pos = end_pos
+        self.delta = self.end_pos - self.start_pos
 
     def __repr__(self):
         type_name = type(self).__name__
@@ -58,41 +61,33 @@ class Arc(Motion):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        s_x, s_y = self.start_pos
-        e_x, e_y = self.end_pos
-        self.dx = e_x - s_x
-        self.dy = e_y - s_y
         # Here we need the equation for the parabola.
         # s = v_i t + 0.5 a t^2
         # s is dy; t is duration; choose G as convenient.
+        delta_y = self.delta[1]
         self.v_i = (
-            self.dy - 0.5 * self.G * self.duration * self.duration
+            delta_y - 0.5 * self.G * self.duration * self.duration
         ) / self.duration
 
     def location_at(self, time, cycle_length):
         time %= cycle_length
         time = time if time >= self.time else time + cycle_length
         assert self.time <= time < self.end_time
-        # TODO: Use a vector object for positions.
-        s_x, s_y = self.start_pos
-        dt = time - self.time
-        fraction = dt / self.duration
-        x = s_x + fraction * self.dx
-        y = s_y + self.v_i * dt + 0.5 * self.G * dt * dt
-        return (x, y)
+        d_t = time - self.time
+        fraction = d_t / self.duration
+        delta_x = fraction * self.delta[0]
+        delta_y = self.v_i * d_t + 0.5 * self.G * d_t * d_t
+        return self.start_pos + np.array([delta_x, delta_y])
 
     def bounding_box(self):
         # vf^2 = v_i^2 + 2 a s; peak is at vf = 0.
         # - 2 a s = v_i^2
         # s = v_i^2 / (-2 a)
         dy_max = self.v_i * self.v_i / (-2 * self.G)
-        s_x, s_y = self.start_pos
-        e_x, e_y = self.end_pos
-        x_min = min(s_x, e_x)
-        y_min = min(s_y, e_y)
-        x_max = max(s_x, e_x)
-        y_max = s_y + dy_max
-        return (x_min, y_min, x_max, y_max)
+        minima = np.minimum(self.start_pos, self.end_pos)
+        maxima = np.maximum(self.start_pos, self.end_pos)
+        maxima[1] = self.start_pos[1] + dy_max
+        return (minima, maxima)
 
 
 class HandMove(Motion):
@@ -100,24 +95,13 @@ class HandMove(Motion):
         time %= cycle_length
         time = time if time >= self.time else time + cycle_length
         assert self.time <= time < self.end_time
-        # TODO: Use a vector object for positions.
-        s_x, s_y = self.start_pos
-        e_x, e_y = self.end_pos
         fraction = (time - self.time) / self.duration
-        dx = e_x - s_x
-        dy = e_y - s_y
-        x = s_x + fraction * dx
-        y = s_y + fraction * dy
-        return (x, y)
+        return self.start_pos + fraction * self.delta
 
     def bounding_box(self):
-        s_x, s_y = self.start_pos
-        e_x, e_y = self.end_pos
-        x_min = min(s_x, e_x)
-        y_min = min(s_y, e_y)
-        x_max = max(s_x, e_x)
-        y_max = max(s_y, e_y)
-        return (x_min, y_min, x_max, y_max)
+        minima = np.minimum(self.start_pos, self.end_pos)
+        maxima = np.maximum(self.start_pos, self.end_pos)
+        return (minima, maxima)
 
 
 class HandStationary(Motion):
@@ -131,8 +115,7 @@ class HandStationary(Motion):
         return True
 
     def bounding_box(self):
-        x_min, y_min = self.start_pos
-        return (x_min, y_min, x_min, y_min)
+        return (self.start_pos, self.start_pos)
 
 
 # This is a hack to put in default throw/catch locations.
@@ -141,23 +124,24 @@ R = 75
 
 def _simple_throw_pos(hand, num_hands):
     if num_hands == 2:
-        return ((hand - 0.5) * R, 0)
+        return np.array([(hand - 0.5) * R, 0])
     angle = hand / num_hands * 2 * math.pi
-    return (R * math.cos(angle), R * math.sin(angle))
+    return np.array([R * math.cos(angle), R * math.sin(angle)])
 
 
 def _simple_catch_pos(hand, num_hands):
     if num_hands == 2:
-        return ((hand - 0.5) * R * 2, R * 0.1)
+        return np.array([(hand - 0.5) * R * 2, R * 0.1])
     angle = hand / num_hands * 2 * math.pi
     outer_r = R * 1.1
-    return (outer_r * math.cos(angle), outer_r * math.sin(angle))
+    return np.array([outer_r * math.cos(angle), outer_r * math.sin(angle)])
 
 
 def _simple_handoff_pos(from_hand, to_hand, num_hands):
-    (x_0, y_0) = _simple_throw_pos(from_hand, num_hands)
-    (x_1, y_1) = _simple_throw_pos(to_hand, num_hands)
-    return ((x_0 + x_1) / 2, (y_0 + y_1) / 2)
+    return 0.5 * (
+        _simple_throw_pos(from_hand, num_hands)
+        + _simple_throw_pos(to_hand, num_hands)
+    )
 
 
 class Animation:
@@ -169,7 +153,6 @@ class Animation:
         self.ball_paths = ball_paths
         self.hand_paths = hand_paths
         self.cycle_length = cycle_length
-        self.g = -25
 
     def num_balls(self):
         return len(self.ball_paths.keys())
@@ -188,24 +171,20 @@ class Animation:
             if move.covers(time, self.cycle_length):
                 return move.location_at(time, self.cycle_length)
         assert False, "Any time should have a hand location."
-        return (0, 0)
+        return np.zeroes(2)
 
     def ball_location_at(self, ball, time):
         for move in self.ball_paths[ball]:
             if move.covers(time, self.cycle_length):
                 return move.location_at(time, self.cycle_length)
         assert False, "Any time should have a ball location."
-        return (0, 0)
+        return np.zeroes(2)
 
     def bounding_box(self):
         def merge_boxes(b_0, b_1):
-            x_min_0, y_min_0, x_max_0, y_max_0 = b_0
-            x_min_1, y_min_1, x_max_1, y_max_1 = b_1
-            x_min = min(x_min_0, x_min_1)
-            y_min = min(y_min_0, y_min_1)
-            x_max = max(x_max_0, x_max_1)
-            y_max = max(y_max_0, y_max_1)
-            return (x_min, y_min, x_max, y_max)
+            min_0, max_0 = b_0
+            min_1, max_1 = b_1
+            return (np.minimum(min_0, min_1), np.maximum(max_0, max_1))
 
         path_list = list(self.ball_paths.values()) + list(
             self.hand_paths.values()
@@ -299,6 +278,7 @@ class SiteSwap:
                 pat.append(2 * throw)
                 pat.append(0)
                 return pat
+
             pattern = reduce(fake_second_hand, pattern, [])
         balls_found = 0
         cycles_found = 0
