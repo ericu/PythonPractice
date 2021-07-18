@@ -120,6 +120,21 @@ class HandMove(Motion):
         return (x_min, y_min, x_max, y_max)
 
 
+class HandStationary(Motion):
+    def __init__(self, pos):
+        super().__init__(0, 0, pos, pos)
+
+    def location_at(self, time, cycle_length):
+        return self.start_pos
+
+    def covers(self, *_):
+        return True
+
+    def bounding_box(self):
+        x_min, y_min = self.start_pos
+        return (x_min, y_min, x_min, y_min)
+
+
 # This is a hack to put in default throw/catch locations.
 r = 75
 
@@ -237,7 +252,7 @@ class SiteSwap:
         # get to throw once.  If we're going to handle that, we may as well go
         # all the way to supporting simultaneous patterns as well.
         if num_hands < 2:
-          raise InputError("Must have at least two hands.")
+            raise InputError("Must have at least two hands.")
         # todo: Would be nice to split on comma *or* whitespace.
         as_strings = [s.strip() for s in string_pattern.split(",")]
         try:
@@ -386,9 +401,7 @@ def analysis_to_animation(analysis):
             # carry_parts should alternate between begin and end.
             assert type(start) != type(end)
             duration = (end.time - start.time + cycle_length) % cycle_length
-            move = HandMove(
-                start.time, duration, start.position, end.position
-            )
+            move = HandMove(start.time, duration, start.position, end.position)
             path.append(move)
             if isinstance(start, CarryStart):
                 assert start.ball == end.ball
@@ -396,6 +409,13 @@ def analysis_to_animation(analysis):
         hand_paths[hand] = path
     for ball_path in ball_paths.values():
         ball_path.sort(key=lambda arc: arc.time)
+    for hand in range(num_hands):
+        if not hand_paths[hand]:
+            print("Hit one!")
+            hand_paths[hand] = [
+                HandStationary(_simple_throw_pos(hand, num_hands))
+            ]
+
     return Animation(ball_paths, hand_paths, cycle_length)
 
 
@@ -437,8 +457,6 @@ class TestValidatePattern(unittest.TestCase):
     def test_animation(self):
         # Animations are quite complex to verify, so this just checks that we
         # don't throw while computing them.
-        # TODO: 5,0,1 fails with 3 or 6 hands, with error
-        # "Any time should have a hand location."
         SiteSwap([2, 8]).animation()
         SiteSwap([4, 4, 1]).animation()
         SiteSwap([5, 6, 1]).animation()
@@ -467,7 +485,10 @@ def main():
     if args.unittest:
         unittest.main()
     elif args.test:
-        analysis = SiteSwap([3]).analyze()
+        analysis = SiteSwap([5, 0, 1]).analyze()
+        print("analysis", analysis)
+        print("paths", analysis_to_animation(analysis))
+        analysis = SiteSwap([5, 0, 1], num_hands=3).analyze()
         print("analysis", analysis)
         print("paths", analysis_to_animation(analysis))
 
