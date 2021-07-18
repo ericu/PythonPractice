@@ -113,6 +113,8 @@ def create_gui():
         try:
             num_hands = int(num_hands_var.get())
             siteswap = SiteSwap.from_string(text, num_hands)
+            if siteswap.num_balls > 640:
+                raise InputError('"640 balls out to be enough for anybody."')
             pattern_set.add(siteswap.pattern_string())
             pattern_list = list(pattern_set)
             pattern_list.sort()
@@ -244,7 +246,6 @@ class RunningAnimation:
     ball_colors = [
         "sky blue",
         "medium orchid",
-        "coral",
         "salmon",
         "LemonChiffon2",
         "thistle",
@@ -254,6 +255,7 @@ class RunningAnimation:
         "gold",
         "lawn green",
         "olive drab",
+        "coral",
         "light goldenrod",
         "red",
         "turquoise",
