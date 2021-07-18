@@ -160,9 +160,12 @@ def create_gui():
     num_hands_selector.bind("<<Increment>>", on_select_num_hands)
     num_hands_selector.bind("<<Decrement>>", on_select_num_hands)
 
-    input_pattern_entry.bind(
-        "<Return>", lambda x: run_pattern(canvas, input_pattern_var.get())
-    )
+    def run_input_pattern():
+        pattern = input_pattern_var.get()
+        input_pattern_entry.delete(0, "end")
+        run_pattern(canvas, pattern)
+
+    input_pattern_entry.bind("<Return>", lambda _: run_input_pattern())
 
     current_pattern_label = ttk.Label(frame, text="Current pattern")
     current_pattern_label.grid(column=0, row=5)
