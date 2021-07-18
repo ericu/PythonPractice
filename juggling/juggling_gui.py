@@ -102,7 +102,7 @@ def create_gui():
     num_hands_label.grid(column=0, row=4)
     num_hands_var = tk.StringVar(value=2)
     num_hands_selector = Spinbox(
-        frame, from_=2, to=7, textvariable=num_hands_var, width=2
+        frame, from_=1, to=7, textvariable=num_hands_var, width=2
     )
     num_hands_selector.grid(column=1, row=4)
 

@@ -136,21 +136,21 @@ class HandStationary(Motion):
 
 
 # This is a hack to put in default throw/catch locations.
-r = 75
+R = 75
 
 
 def _simple_throw_pos(hand, num_hands):
     if num_hands == 2:
-        return ((hand - 0.5) * r, 0)
+        return ((hand - 0.5) * R, 0)
     angle = hand / num_hands * 2 * math.pi
-    return (r * math.cos(angle), r * math.sin(angle))
+    return (R * math.cos(angle), R * math.sin(angle))
 
 
 def _simple_catch_pos(hand, num_hands):
     if num_hands == 2:
-        return ((hand - 0.5) * r * 2, r * 0.1)
+        return ((hand - 0.5) * R * 2, R * 0.1)
     angle = hand / num_hands * 2 * math.pi
-    outer_r = r * 1.1
+    outer_r = R * 1.1
     return (outer_r * math.cos(angle), outer_r * math.sin(angle))
 
 
@@ -246,13 +246,6 @@ class SiteSwap:
     @staticmethod
     def from_string(string_pattern, num_hands=2):
         """Produces a SiteSwap from a comma-separated list of natural numbers."""
-        # To support 1-handed patterns, we'd have to tweak the timing somewhat
-        # to force a pause to get from throw position to catch position.  For
-        # multi-handed patterns, that pause is the time in which all other hands
-        # get to throw once.  If we're going to handle that, we may as well go
-        # all the way to supporting simultaneous patterns as well.
-        if num_hands < 2:
-            raise InputError("Must have at least two hands.")
         # todo: Would be nice to split on comma *or* whitespace.
         as_strings = [s.strip() for s in string_pattern.split(",")]
         try:
@@ -298,6 +291,15 @@ class SiteSwap:
             pattern = self.pattern * self.num_hands
         else:
             pattern = self.pattern
+        if self.num_hands == 1:
+            # To give the hand time to get back to throwing position, double all
+            # the throw heights and put a 0 in between, as if it's a 2-handed
+            # pattern.
+            def fake_second_hand(pat, throw):
+                pat.append(2 * throw)
+                pat.append(0)
+                return pat
+            pattern = reduce(fake_second_hand, pattern, [])
         balls_found = 0
         cycles_found = 0
         cycle_lengths = []
