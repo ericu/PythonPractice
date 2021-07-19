@@ -124,18 +124,16 @@ R = 75
 
 
 def _simple_throw_pos(hand, num_hands):
-    if num_hands == 2:
-        return np.array([(hand - 0.5) * R, 0])
     angle = hand / num_hands * 2 * math.pi
     return np.array([R * math.cos(angle), R * math.sin(angle)])
 
 
 def _simple_catch_pos(hand, num_hands):
-    if num_hands == 2:
-        return np.array([(hand - 0.5) * R * 2, R * 0.1])
     angle = hand / num_hands * 2 * math.pi
     outer_r = R * 1.5
-    return np.array([outer_r * math.cos(angle), outer_r * math.sin(angle)])
+    return np.array(
+        [outer_r * math.cos(angle), outer_r * math.sin(angle) + R * 0.2]
+    )
 
 
 def _simple_handoff_pos(from_hand, to_hand, num_hands):
