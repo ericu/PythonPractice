@@ -21,7 +21,7 @@ class AppWindow(pyglet.window.Window):
     super().__init__(config=config, resizable=True)
     self.shapes = [Box()]
     for i in range(10):
-      self.shapes.append(Point(0, 0, 0))
+      self.shapes.append(Ball(0, 0, 0))
 
   def on_draw(self):
 
@@ -94,7 +94,7 @@ class Box(Shape):
                                  ('v3f', self.wall_coords),
                                  ('c3B', self.back_colors))
 
-class Point(Shape):
+class Ball(Shape):
   def __init__(self, x, y, z):
     self.coords = np.array([float(x), float(y), float(z)])
     self.size = 0.1
