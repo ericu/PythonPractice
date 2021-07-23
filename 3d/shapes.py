@@ -100,11 +100,11 @@ def normalize(v):
 def makeSimpleColors(points):
   colors = []
   for point in points:
-    red = point[0]
-    green = point[1]
-    blue = point[2]
+    red = round(255 * abs(point[0]))
+    green = round(255 * abs(point[1]))
+    blue = round(255 * abs(point[2]))
     colors.append(red)
     colors.append(green)
     colors.append(blue)
-    colors.append(1.0)
+    colors.append(255)
   return colors

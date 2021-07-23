@@ -76,13 +76,16 @@ class Point():
   def __init__(self, coords, color):
     self.coords = coords
     self.color = color
-    geometry = shapes.make_sphere_geometry(1)
+    geometry = shapes.make_sphere_geometry(4)
     self.vertices = tuple([i for i in concat(geometry['points'])])
     self.indices = tuple(geometry['faces'])
-    self.colors = tuple([round(f * 255) for f in geometry['colors']])
+    self.colors = geometry['colors']
 
   def draw(self):
     print('draw point')
+    glLoadIdentity()
+    glTranslatef(*self.coords)
+    glScalef(0.1, 0.1, 0.2)
     pyglet.graphics.draw_indexed(len(self.vertices) // 3,
                                  pyglet.gl.GL_TRIANGLES,
                                  self.indices,
