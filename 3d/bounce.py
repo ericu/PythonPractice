@@ -11,6 +11,7 @@ import sys
 import shapes
 
 EPSILON = 0.001
+EXPECTED_FRAME_RATE = 1 / 65.0
 
 def concat(lists):
   return chain.from_iterable(lists)
@@ -23,15 +24,50 @@ class AppWindow(pyglet.window.Window):
                                 samples=4, stencil_size=0)
     config = screen.get_best_config(template)
     super().__init__(config=config, resizable=True)
-    self.balls = [Ball(0, 0, 0) for i in range(5)]
+    self.balls = [Ball(0, 0, 0) for i in range(10)]
     self.shapes = [Box()] + self.balls
-    # This appears to draw more smoothly at 65fps rather than 60fps; I'm
-    # guessing it's syncing to the screen refresh, and so this is giving me a
-    # true 60fps, whereas asking for 60fps may miss a frame here and there.
-    # todo: A frame-rate counter would tell me whether that's the case.
-    self.expected_frame_rate = 1 / 65.0
     pyglet.clock.schedule_interval(lambda dt: self.update(dt),
-                                   self.expected_frame_rate)
+                                   EXPECTED_FRAME_RATE)
+    self.draw_surface = False
+    self.surface_to_draw = None
+
+  def on_key_press(self, symbol, modifiers):
+      if symbol == pyglet.window.key.C:
+        self.surface_to_draw = self.capture_surface()
+        self.draw_surface = True
+      elif symbol == pyglet.window.key.D:
+        self.draw_surface = not self.draw_surface
+
+  def capture_surface(self):
+
+      samples = 50
+      samples_imaginary = samples * 1j
+      X, Y, Z = np.mgrid[-1:1:samples_imaginary,
+                         -1:1:samples_imaginary,
+                         -1:1:samples_imaginary]
+      output = np.zeros([samples, samples, samples])
+      for i in range(samples):
+        for j in range(samples):
+          for k in range(samples):
+            x = X[i][j][k]
+            y = Y[i][j][k]
+            z = Z[i][j][k]
+            output[i][j][k] = self.field_strength(np.array([x, y, z]))
+      vertices, triangles = mcubes.marching_cubes(output, 0.6)
+      surface_vertexes = tuple([v * 2 / (samples - 1) - 1
+                                for v in concat(vertices)])
+      # The indices appear to be ints, but when I pass them in and they have
+      # math done on them [adding to another int], they turn into floats, which
+      # causes something expecting ints to blow up.  This explicit cast fixes
+      # that.
+      surface_indices = tuple(map(int, concat(triangles)))
+      batch = pyglet.graphics.Batch()
+      batch.add_indexed(len(surface_vertexes) // 3,
+                        pyglet.gl.GL_TRIANGLES,
+                        None,
+                        surface_indices,
+                        ('v3f', surface_vertexes))
+      return batch
 
   def on_draw(self):
 
@@ -51,18 +87,8 @@ class AppWindow(pyglet.window.Window):
       for shape in self.shapes:
           shape.draw()
 
-      # TODO: This is supposed to be slower than pre-rendering to an array.
-      f = lambda x, y, z: self.field_strength(np.array([x, y, z]))
-      vertices, triangles = mcubes.marching_cubes_func((-1, -1, -1), # min
-                                                       (1, 1, 1), # max
-                                                       15, 15, 15, # samples
-                                                       f, 0.9)
-      surface_vertexes = tuple(concat(vertices))
-      surface_indexes = tuple(concat(triangles))
-      pyglet.graphics.draw_indexed(len(surface_vertexes) // 3,
-                                   pyglet.gl.GL_TRIANGLES,
-                                   surface_indexes,
-                                   ('v3f', surface_vertexes))
+      if self.draw_surface and self.surface_to_draw:
+          self.surface_to_draw.draw()
 
 
   def on_resize(self, arg, arg2):
@@ -72,7 +98,7 @@ class AppWindow(pyglet.window.Window):
 
   def update(self, dt):
       for shape in self.shapes:
-          shape.update(dt / self.expected_frame_rate)
+          shape.update(dt / EXPECTED_FRAME_RATE)
 
   def field_strength(self, coords):
     strength = 0
@@ -128,12 +154,13 @@ class Ball(Shape):
   def __init__(self, x, y, z):
     self.coords = np.array([float(x), float(y), float(z)])
     self.size = 0.1
+    self.wall_buffer = 0.15
     geometry = shapes.make_sphere_geometry(4)
     self.vertices = tuple([i for i in concat(geometry['points'])])
     self.indices = tuple(geometry['faces'])
     self.colors = geometry['colors']
     # Not uniform over the sphere, but fine for this application.
-    speed = 0.03
+    speed = 0.5 * EXPECTED_FRAME_RATE
     self.velocity = np.array([
       random.random() * speed,
       random.random() * speed,
@@ -155,8 +182,8 @@ class Ball(Shape):
   def update(self, frame_scaling):
     self.coords += self.velocity * frame_scaling
     for (index, component) in enumerate(self.coords):
-      upper_bound = 1 - self.size
-      lower_bound = -1 + self.size
+      upper_bound = 1 - self.wall_buffer
+      lower_bound = -1 + self.wall_buffer
       if component > upper_bound:
         self.coords[index] += 2 * (upper_bound - component)
         self.velocity[index] = -self.velocity[index]
@@ -166,9 +193,9 @@ class Ball(Shape):
     
   def field_strength(self, coords):
       distance = np.linalg.norm(coords - self.coords)
-      if (distance < self.size + EPSILON):
+      if (distance < self.wall_buffer + EPSILON):
         return self.charge
-      return self.charge / ((1 + 5 * (distance - self.size)) ** 3)
+      return self.charge / ((1 + 4 * (distance - self.wall_buffer)) ** 3)
 
 if __name__ == '__main__':
   window = AppWindow()
