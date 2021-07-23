@@ -19,7 +19,8 @@ class AppWindow(pyglet.window.Window):
     super().__init__(config=config, resizable=True)
     self.shapes = [
       Box(),
-      Point(0.5, 0, 0)
+      Point(0.5, 0, 0),
+      Point(-0.5, 0.3, 0.4)
     ]
 #    self.cube2 = Box((-0.1, 0.1), (-0.1, 0.1), (-0.1, 0.1), (255, 128, 64))
 
@@ -77,8 +78,6 @@ class Box(Shape):
     self.wall_vertex_count = len(self.wall_coords) // 3
     self.back_indices = [0, 2, 6, 4]
     self.back_colors = tuple(8 * [32, 32, 64])
-    print(len(self.wall_colors))
-    print(len(self.back_colors))
 
   def draw(self):
     pyglet.graphics.draw_indexed(self.wall_vertex_count, pyglet.gl.GL_QUADS,
@@ -101,8 +100,8 @@ class Point(Shape):
 
   def draw(self):
     glPushMatrix()
-    glScalef(self.size, self.size, self.size)
     glTranslatef(*self.coords)
+    glScalef(self.size, self.size, self.size)
     pyglet.graphics.draw_indexed(len(self.vertices) // 3,
                                  pyglet.gl.GL_TRIANGLES,
                                  self.indices,
@@ -112,7 +111,4 @@ class Point(Shape):
 
 if __name__ == '__main__':
   window = AppWindow()
-  context = window.context
-  config = context.config
-#  print(config)
   pyglet.app.run()
