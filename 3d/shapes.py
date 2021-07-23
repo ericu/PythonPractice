@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def make_tetrahedron_geometry():
     """This tetrahedron is centered at the origin, and its points are on the
     unit sphere."""
