@@ -72,9 +72,7 @@ class AppWindow(pyglet.window.Window):
                     x = x_values[i][j][k]
                     y = y_values[i][j][k]
                     z = z_values[i][j][k]
-                    output[i][j][k] = self.field_strength(
-                        np.array([x, y, z])
-                    )
+                    output[i][j][k] = self.field_strength(np.array([x, y, z]))
 
         return output
 
