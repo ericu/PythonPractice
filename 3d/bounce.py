@@ -3,6 +3,7 @@
 import pyglet
 from pyglet.gl import *
 from itertools import chain
+import numpy as np
 
 import shapes
 
@@ -40,19 +41,27 @@ class AppWindow(pyglet.window.Window):
 
       glEnable(GL_DEPTH_TEST)
       for shape in self.shapes:
-        shape.draw()
+          shape.draw()
 #      self.cube2.draw()
 #      self.cube.draw()
 
 
   def on_resize(self, arg, arg2):
-    glViewport(0, 0, self.width, self.height)
-    return pyglet.event.EVENT_HANDLED
+      glViewport(0, 0, self.width, self.height)
+      return pyglet.event.EVENT_HANDLED
+
+
+  def update(self, dt):
+      for shape in self.shapes:
+          shape.update(dt)
 
 class Shape():
 
-  def draw():
+  def draw(self):
     raise NotImplementedError()
+
+  def update(self, dt):
+    pass
 
 class Box(Shape):
   def __init__(self):
@@ -91,16 +100,17 @@ class Box(Shape):
 
 class Point(Shape):
   def __init__(self, x, y, z):
-    self.coords = (x, y, x)
+    self.coords = np.array([x, y, x])
     self.size = 0.1
     geometry = shapes.make_sphere_geometry(4)
     self.vertices = tuple([i for i in concat(geometry['points'])])
     self.indices = tuple(geometry['faces'])
     self.colors = geometry['colors']
+    self.velocity = np.array([0.01, 0.02, 0.03])
 
   def draw(self):
     glPushMatrix()
-    glTranslatef(*self.coords)
+    glTranslatef(self.coords[0], self.coords[1], self.coords[2])
     glScalef(self.size, self.size, self.size)
     pyglet.graphics.draw_indexed(len(self.vertices) // 3,
                                  pyglet.gl.GL_TRIANGLES,
@@ -109,6 +119,18 @@ class Point(Shape):
                                  ('c4B', self.colors))
     glPopMatrix()
 
+  def update(self, dt):
+    self.coords += self.velocity
+    for (index, component) in enumerate(self.coords):
+      if component > 1:
+        component = 1 - component
+        self.velocity[index] = -self.velocity[index]
+      elif component < -1:
+        component = -1 - component
+        self.velocity[index] = -self.velocity[index]
+    
+
 if __name__ == '__main__':
   window = AppWindow()
+  pyglet.clock.schedule_interval(lambda dt: window.update(dt), 1/60.0)
   pyglet.app.run()
