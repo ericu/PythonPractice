@@ -39,6 +39,8 @@ class AppWindow(pyglet.window.Window):
         )
         self.draw_surface = False
         self.surface_to_draw = None
+        self.draw_voxels = False
+        self.voxels_to_draw = None
 
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.C:
@@ -46,32 +48,64 @@ class AppWindow(pyglet.window.Window):
             self.draw_surface = True
         elif symbol == pyglet.window.key.D:
             self.draw_surface = not self.draw_surface
+        elif symbol == pyglet.window.key.V:
+            self.voxels_to_draw = self.capture_voxels()
+            self.draw_voxels = True
+        elif symbol == pyglet.window.key.E:
+            self.draw_voxels = not self.draw_voxels
+
+    def field_over_matrix(self, samples):
+        samples_imaginary = samples * 1j
+        x_values, y_values, z_values = np.mgrid[
+            -1:1:samples_imaginary,
+            -1:1:samples_imaginary,
+            -1:1:samples_imaginary,
+        ]
+        output = np.zeros([samples, samples, samples])
+        for i in range(samples):
+            for j in range(samples):
+                for k in range(samples):
+                    x = x_values[i][j][k]
+                    y = y_values[i][j][k]
+                    z = z_values[i][j][k]
+                    output[i][j][k] = self.field_strength(
+                        np.array([x, y, z])
+                    )
+
+        return output
+
+    def capture_voxels(self):
+
+        samples = 50
+
+        values_in_set = self.field_over_matrix(samples) > 0.6
+
+        samples_imaginary = samples * 1j
+        x_values, y_values, z_values = np.mgrid[
+            -1:1:samples_imaginary,
+            -1:1:samples_imaginary,
+            -1:1:samples_imaginary,
+        ]
+        coords_list = []
+        for i in range(samples):
+            for j in range(samples):
+                for k in range(samples):
+                    if values_in_set[i][j][k]:
+                        x = x_values[i][j][k]
+                        y = y_values[i][j][k]
+                        z = z_values[i][j][k]
+                        coords_list.append((x, y, z))
+
+        # N samples means a range of [0...N-1], so a width of N-1 units.
+        return VoxelList(coords_list, 2 / (samples - 1))
 
     def capture_surface(self):
 
         samples = 50
 
-        def generate_surface():
-            samples_imaginary = samples * 1j
-            x_values, y_values, z_values = np.mgrid[
-                -1:1:samples_imaginary,
-                -1:1:samples_imaginary,
-                -1:1:samples_imaginary,
-            ]
-            output = np.zeros([samples, samples, samples])
-            for i in range(samples):
-                for j in range(samples):
-                    for k in range(samples):
-                        x = x_values[i][j][k]
-                        y = y_values[i][j][k]
-                        z = z_values[i][j][k]
-                        output[i][j][k] = self.field_strength(
-                            np.array([x, y, z])
-                        )
-
-            return mcubes.marching_cubes(output, 0.6)
-
-        vertices, triangles = generate_surface()
+        vertices, triangles = mcubes.marching_cubes(
+            self.field_over_matrix(samples), 0.6
+        )
         surface_vertexes = tuple(
             v * 2 / (samples - 1) - 1 for v in concat(vertices)
         )
@@ -115,6 +149,8 @@ class AppWindow(pyglet.window.Window):
 
         if self.draw_surface and self.surface_to_draw:
             self.surface_to_draw.draw()
+        if self.draw_voxels and self.voxels_to_draw:
+            self.voxels_to_draw.draw()
 
     def on_resize(self, width, height):
         gl.glViewport(0, 0, width, height)
@@ -181,6 +217,47 @@ class Box(Shape):
             ("v3f", self.wall_coords),
             ("c3B", self.back_colors),
         )
+
+
+class VoxelList(Shape):
+    def __init__(self, coords_list, size):
+        self.coords_list = coords_list
+        self.size = size
+        # fmt: off
+        self.wall_coords = [
+            -1, -1, -1,
+            -1, -1,  1,
+            -1,  1, -1,
+            -1,  1,  1,
+             1, -1, -1,
+             1, -1,  1,
+             1,  1, -1,
+             1,  1,  1,
+        ]
+        self.wall_indices = [
+            0, 1, 3, 2,  # Left wall
+            4, 5, 7, 6,  # Right wall
+            2, 3, 7, 6,  # Ceiling
+            0, 1, 5, 4,  # Floor
+            1, 3, 7, 5,  # Front
+        ]
+        # fmt: on
+        self.wall_vertex_count = len(self.wall_coords) // 3
+        self.wall_colors = self.wall_vertex_count * (64, 192, 64, 128)
+
+    def draw(self):
+        for coords in self.coords_list:
+          gl.glPushMatrix()
+          gl.glTranslatef(coords[0], coords[1], coords[2])
+          gl.glScalef(self.size, self.size, self.size)
+          pyglet.graphics.draw_indexed(
+              self.wall_vertex_count,
+              gl.GL_QUADS,
+              self.wall_indices,
+              ("v3f", self.wall_coords),
+              ("c4B", self.wall_colors),
+          )
+          gl.glPopMatrix()
 
 
 class Ball(Shape):
