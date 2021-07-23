@@ -2,6 +2,7 @@
 
 from itertools import chain
 import random
+import sys
 
 import numpy as np
 import mcubes  # Requires scipy as well
@@ -53,6 +54,8 @@ class AppWindow(pyglet.window.Window):
             self.draw_voxels = True
         elif symbol == pyglet.window.key.E:
             self.draw_voxels = not self.draw_voxels
+        elif symbol == pyglet.window.key.Q:
+            sys.exit()
 
     def field_over_matrix(self, samples):
         samples_imaginary = samples * 1j
@@ -76,7 +79,7 @@ class AppWindow(pyglet.window.Window):
 
     def capture_voxels(self):
 
-        samples = 50
+        samples = 30
 
         values_in_set = self.field_over_matrix(samples) > 0.6
 
@@ -101,7 +104,7 @@ class AppWindow(pyglet.window.Window):
 
     def capture_surface(self):
 
-        samples = 50
+        samples = 30
 
         vertices, triangles = mcubes.marching_cubes(
             self.field_over_matrix(samples), 0.6
@@ -224,40 +227,45 @@ class VoxelList(Shape):
         self.coords_list = coords_list
         self.size = size
         # fmt: off
-        self.wall_coords = [
-            -1, -1, -1,
-            -1, -1,  1,
-            -1,  1, -1,
-            -1,  1,  1,
-             1, -1, -1,
-             1, -1,  1,
-             1,  1, -1,
-             1,  1,  1,
-        ]
-        self.wall_indices = [
+        wall_coords_template = np.array([
+            [-1, -1, -1],
+            [-1, -1,  1],
+            [-1,  1, -1],
+            [-1,  1,  1],
+            [ 1, -1, -1],
+            [ 1, -1,  1],
+            [ 1,  1, -1],
+            [ 1,  1,  1],
+        ]) * size
+        wall_indices_template = np.array([
             0, 1, 3, 2,  # Left wall
             4, 5, 7, 6,  # Right wall
             2, 3, 7, 6,  # Ceiling
             0, 1, 5, 4,  # Floor
             1, 3, 7, 5,  # Front
-        ]
+        ])
+        wall_coords = []
+        wall_indices = []
+        num_vertices_in_template = len(wall_coords_template)
+        for (index, coords) in enumerate(coords_list):
+          wall_coords.append(concat(wall_coords_template + coords))
+          wall_indices.append(wall_indices_template +
+                              index * num_vertices_in_template)
+        self.wall_coords = tuple(concat(wall_coords))
+        self.wall_indices = tuple(concat(wall_indices))
+
         # fmt: on
         self.wall_vertex_count = len(self.wall_coords) // 3
         self.wall_colors = self.wall_vertex_count * (64, 192, 64, 128)
 
     def draw(self):
-        for coords in self.coords_list:
-          gl.glPushMatrix()
-          gl.glTranslatef(coords[0], coords[1], coords[2])
-          gl.glScalef(self.size, self.size, self.size)
-          pyglet.graphics.draw_indexed(
-              self.wall_vertex_count,
-              gl.GL_QUADS,
-              self.wall_indices,
-              ("v3f", self.wall_coords),
-              ("c4B", self.wall_colors),
-          )
-          gl.glPopMatrix()
+        pyglet.graphics.draw_indexed(
+            self.wall_vertex_count,
+            gl.GL_QUADS,
+            self.wall_indices,
+            ("v3f", self.wall_coords),
+            ("c4B", self.wall_colors),
+        )
 
 
 class Ball(Shape):
