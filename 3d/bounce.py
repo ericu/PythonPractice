@@ -1,10 +1,12 @@
 #!/usr/bin/python3
 
 import pyglet
-from pyglet.gl import *
+from pyglet.gl import * # Requires PyOpenGL PyOpenGL_accelerate
 from itertools import chain
 import numpy as np
 import random
+import mcubes # Requires scipy as well
+import sys
 
 import shapes
 
@@ -21,7 +23,7 @@ class AppWindow(pyglet.window.Window):
                                 samples=4, stencil_size=0)
     config = screen.get_best_config(template)
     super().__init__(config=config, resizable=True)
-    self.balls = [Ball(0, 0, 0) for i in range(10)]
+    self.balls = [Ball(0, 0, 0) for i in range(3)]
     self.shapes = [Box()] + self.balls
     # This appears to draw more smoothly at 65fps rather than 60fps; I'm
     # guessing it's syncing to the screen refresh, and so this is giving me a
@@ -48,6 +50,20 @@ class AppWindow(pyglet.window.Window):
       glEnable(GL_DEPTH_TEST)
       for shape in self.shapes:
           shape.draw()
+
+      # TODO: This is supposed to be slower than pre-rendering to an array.
+      f = lambda x, y, z: self.field_strength(np.array([x, y, z]))
+      vertices, triangles = mcubes.marching_cubes_func((-1, -1, -1), # min
+                                                       (1, 1, 1), # max
+                                                       25, 25, 25, # samples
+                                                       f, 0.85)
+      surface_vertexes = tuple(concat(vertices))
+      surface_indexes = tuple(concat(triangles))
+      pyglet.graphics.draw_indexed(len(surface_vertexes) // 3,
+                                   pyglet.gl.GL_TRIANGLES,
+                                   surface_indexes,
+                                   ('v3f', surface_vertexes))
+      print(vertices, triangles)
 
 
   def on_resize(self, arg, arg2):
@@ -153,7 +169,7 @@ class Ball(Shape):
       distance = np.linalg.norm(coords - self.coords)
       if (distance < self.size + EPSILON):
         return self.charge
-      return self.charge / ((1 + distance - self.size) ** 2)
+      return self.charge / ((1 + distance - self.size) ** 3)
 
 if __name__ == '__main__':
   window = AppWindow()
