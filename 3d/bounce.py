@@ -6,7 +6,7 @@ import random
 import numpy as np
 import mcubes  # Requires scipy as well
 import pyglet
-import pyglet.gl  # Requires PyOpenGL PyOpenGL_accelerate
+import pyglet.gl as gl # Requires PyOpenGL PyOpenGL_accelerate
 
 import shapes
 
@@ -23,7 +23,7 @@ class AppWindow(pyglet.window.Window):
     def __init__(self):
         display = pyglet.canvas.get_display()
         screen = display.get_default_screen()
-        template = pyglet.gl.Config(
+        template = gl.Config(
             alpha_size=8,
             depth_size=24,
             sample_buffers=1,
@@ -76,15 +76,15 @@ class AppWindow(pyglet.window.Window):
             v * 2 / (samples - 1) - 1 for v in concat(vertices)
         )
         # The indices appear to be ints, but when I pass them in and they have
-        # math done on them [adding to another int], they turn into floats, which
-        # causes something expecting ints to blow up.  This explicit cast fixes
-        # that.
+        # math done on them [adding to another int], they turn into floats,
+        # which causes something expecting ints to blow up.  This explicit cast
+        # fixes that.
         surface_vertex_count = len(surface_vertexes) // 3
         surface_indices = tuple(map(int, concat(triangles)))
         surface_colors = tuple(surface_vertex_count * [64, 64, 192, 128])
         batch = pyglet.graphics.Batch()
         batch.add_indexed(surface_vertex_count,
-                          pyglet.gl.GL_TRIANGLES,
+                          gl.GL_TRIANGLES,
                           None,
                           surface_indices,
                           ("v3f", surface_vertexes),
@@ -96,19 +96,20 @@ class AppWindow(pyglet.window.Window):
 
         self.clear()
 
-        pyglet.gl.glMatrixMode(pyglet.gl.GL_PROJECTION)
-        pyglet.gl.glLoadIdentity()
-        pyglet.gl.gluPerspective(85, self.width / self.height, 0.1, 100)
+        gl.glMatrixMode(gl.GL_PROJECTION)
+        gl.glLoadIdentity()
+        gl.gluPerspective(85, self.width / self.height, 0.1, 100)
 
-        pyglet.gl.glMatrixMode(pyglet.gl.GL_MODELVIEW)
-        pyglet.gl.glLoadIdentity()
-        pyglet.gl.glTranslatef(0, 0, -2)
+        gl.glMatrixMode(gl.GL_MODELVIEW)
+        gl.glLoadIdentity()
+        gl.glTranslatef(0, 0, -2)
         # Angle, axis
-        #      pyglet.gl.glRotatef(45, 0, 1, 0)
+        #      gl.glRotatef(45, 0, 1, 0)
 
-        pyglet.gl.glBlendFunc(pyglet.gl.GL_SRC_ALPHA, pyglet.gl.GL_ONE_MINUS_SRC_ALPHA);
-        pyglet.gl.glEnable(pyglet.gl.GL_BLEND);
-        pyglet.gl.glEnable(pyglet.gl.GL_DEPTH_TEST)
+        gl.glBlendFunc(gl.GL_SRC_ALPHA,
+                              gl.GL_ONE_MINUS_SRC_ALPHA);
+        gl.glEnable(gl.GL_BLEND);
+        gl.glEnable(gl.GL_DEPTH_TEST)
         for shape in self.shapes:
             shape.draw()
 
@@ -116,7 +117,7 @@ class AppWindow(pyglet.window.Window):
             self.surface_to_draw.draw()
 
     def on_resize(self, width, height):
-        pyglet.gl.glViewport(0, 0, width, height)
+        gl.glViewport(0, 0, width, height)
         return pyglet.event.EVENT_HANDLED
 
     def update(self, delta_t):
@@ -140,6 +141,7 @@ class Shape:
 
 class Box(Shape):
     def __init__(self):
+        # fmt: off
         self.wall_coords = [
             -1, -1, -1,
             -1, -1,  1,
@@ -156,6 +158,7 @@ class Box(Shape):
             2, 3, 7, 6,  # Ceiling
             0, 1, 5, 4,  # Floor
         ]
+        # fmt: on
         floor_color = (64, 64, 64)
         ceiling_color = (192, 192, 192)
         self.wall_colors = tuple((2 * floor_color + 2 * ceiling_color) * 2)
@@ -166,14 +169,14 @@ class Box(Shape):
     def draw(self):
         pyglet.graphics.draw_indexed(
             self.wall_vertex_count,
-            pyglet.gl.GL_QUADS,
+            gl.GL_QUADS,
             self.wall_indices,
             ("v3f", self.wall_coords),
             ("c3B", self.wall_colors),
         )
         pyglet.graphics.draw_indexed(
             self.wall_vertex_count,
-            pyglet.gl.GL_QUADS,
+            gl.GL_QUADS,
             self.back_indices,
             ("v3f", self.wall_coords),
             ("c3B", self.back_colors),
@@ -200,17 +203,17 @@ class Ball(Shape):
         self.charge = 1.0
 
     def draw(self):
-        pyglet.gl.glPushMatrix()
-        pyglet.gl.glTranslatef(self.coords[0], self.coords[1], self.coords[2])
-        pyglet.gl.glScalef(self.size, self.size, self.size)
+        gl.glPushMatrix()
+        gl.glTranslatef(self.coords[0], self.coords[1], self.coords[2])
+        gl.glScalef(self.size, self.size, self.size)
         pyglet.graphics.draw_indexed(
             len(self.vertices) // 3,
-            pyglet.gl.GL_TRIANGLES,
+            gl.GL_TRIANGLES,
             self.indices,
             ("v3f", self.vertices),
             ("c4B", self.colors),
         )
-        pyglet.gl.glPopMatrix()
+        gl.glPopMatrix()
 
     def update(self, frame_scaling):
         self.coords += self.velocity * frame_scaling
