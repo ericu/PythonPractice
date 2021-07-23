@@ -7,7 +7,7 @@ import sys
 import numpy as np
 import mcubes  # Requires scipy as well
 import pyglet
-import pyglet.gl as gl  # Requires PyOpenGL PyOpenGL_accelerate
+from pyglet import gl  # Requires PyOpenGL PyOpenGL_accelerate
 
 import shapes
 
@@ -249,9 +249,9 @@ class VoxelList(Shape):
         wall_indices = []
         num_vertices_in_template = len(wall_coords_template)
         for (index, coords) in enumerate(coords_list):
-          wall_coords.append(concat(wall_coords_template + coords))
-          wall_indices.append(wall_indices_template +
-                              index * num_vertices_in_template)
+            wall_coords.append(concat(wall_coords_template + coords))
+            wall_indices.append(wall_indices_template +
+                                index * num_vertices_in_template)
         self.wall_coords = tuple(concat(wall_coords))
         self.wall_indices = tuple(concat(wall_indices))
 
