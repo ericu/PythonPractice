@@ -16,8 +16,10 @@ class AppWindow(pyglet.window.Window):
                                 samples=4, stencil_size=0)
     config = screen.get_best_config(template)
     super().__init__(config=config, resizable=True)
-#    self.cube = Cube((-0.5, 0.5), (-0.5, 0.5), (-0.5, 0.5))
-    self.point = Point((0, 0, 0), (255, 128, 64))
+    self.shapes = [
+      Cube((-0.5, 0.5), (-0.5, 0.5), (-0.5, 0.5)),
+      Point((0.5, 0, 0), (255, 128, 64))
+    ]
 #    self.cube2 = Cube((-0.1, 0.1), (-0.1, 0.1), (-0.1, 0.1), (255, 128, 64))
 
   def on_draw(self):
@@ -26,16 +28,17 @@ class AppWindow(pyglet.window.Window):
 
       glMatrixMode(GL_PROJECTION)
       glLoadIdentity()
-      gluPerspective(95, 1, 0.1, 100)
+      gluPerspective(45, 1, 0.1, 100)
 
       glMatrixMode(GL_MODELVIEW)
       glLoadIdentity()
-      glTranslatef(0, 0, -1)
+      glTranslatef(0, 0, -2)
       # Angle, axis
 #      glRotatef(45, 0, 1, 0)
 
       glEnable(GL_DEPTH_TEST)
-      self.point.draw()
+      for shape in self.shapes:
+        shape.draw()
 #      self.cube2.draw()
 #      self.cube.draw()
 
@@ -76,6 +79,7 @@ class Point():
   def __init__(self, coords, color):
     self.coords = coords
     self.color = color
+    self.size = 0.1
     geometry = shapes.make_sphere_geometry(4)
     self.vertices = tuple([i for i in concat(geometry['points'])])
     self.indices = tuple(geometry['faces'])
@@ -83,14 +87,15 @@ class Point():
 
   def draw(self):
     print('draw point')
-    glLoadIdentity()
+    glPushMatrix()
+    glScalef(self.size, self.size, self.size)
     glTranslatef(*self.coords)
-    glScalef(0.1, 0.1, 0.2)
     pyglet.graphics.draw_indexed(len(self.vertices) // 3,
                                  pyglet.gl.GL_TRIANGLES,
                                  self.indices,
                                  ('v3f', self.vertices),
                                  ('c4B', self.colors))
+    glPopMatrix()
     
 
 if __name__ == '__main__':
