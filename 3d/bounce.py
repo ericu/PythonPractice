@@ -4,6 +4,7 @@ import pyglet
 from pyglet.gl import *
 from itertools import chain
 import numpy as np
+import random
 
 import shapes
 
@@ -18,12 +19,9 @@ class AppWindow(pyglet.window.Window):
                                 samples=4, stencil_size=0)
     config = screen.get_best_config(template)
     super().__init__(config=config, resizable=True)
-    self.shapes = [
-      Box(),
-      Point(0.5, 0, 0),
-      Point(-0.5, 0.3, 0.4)
-    ]
-#    self.cube2 = Box((-0.1, 0.1), (-0.1, 0.1), (-0.1, 0.1), (255, 128, 64))
+    self.shapes = [Box()]
+    for i in range(10):
+      self.shapes.append(Point(0, 0, 0))
 
   def on_draw(self):
 
@@ -42,8 +40,6 @@ class AppWindow(pyglet.window.Window):
       glEnable(GL_DEPTH_TEST)
       for shape in self.shapes:
           shape.draw()
-#      self.cube2.draw()
-#      self.cube.draw()
 
 
   def on_resize(self, arg, arg2):
@@ -100,13 +96,18 @@ class Box(Shape):
 
 class Point(Shape):
   def __init__(self, x, y, z):
-    self.coords = np.array([x, y, x])
+    self.coords = np.array([float(x), float(y), float(z)])
     self.size = 0.1
     geometry = shapes.make_sphere_geometry(4)
     self.vertices = tuple([i for i in concat(geometry['points'])])
     self.indices = tuple(geometry['faces'])
     self.colors = geometry['colors']
-    self.velocity = np.array([0.01, 0.02, 0.03])
+    # Not uniform over the sphere, but fine for this application.
+    self.velocity = np.array([
+      random.random() * 0.05,
+      random.random() * 0.05,
+      random.random() * 0.05
+    ])
 
   def draw(self):
     glPushMatrix()
