@@ -8,6 +8,8 @@ import random
 
 import shapes
 
+EPSILON = 0.001
+
 def concat(lists):
   return chain.from_iterable(lists)
 
@@ -19,9 +21,8 @@ class AppWindow(pyglet.window.Window):
                                 samples=4, stencil_size=0)
     config = screen.get_best_config(template)
     super().__init__(config=config, resizable=True)
-    self.shapes = [Box()]
-    for i in range(10):
-      self.shapes.append(Ball(0, 0, 0))
+    self.balls = [Ball(0, 0, 0) for i in range(10)]
+    self.shapes = [Box()] + self.balls
     # This appears to draw more smoothly at 65fps rather than 60fps; I'm
     # guessing it's syncing to the screen refresh, and so this is giving me a
     # true 60fps, whereas asking for 60fps may miss a frame here and there.
@@ -57,6 +58,13 @@ class AppWindow(pyglet.window.Window):
   def update(self, dt):
       for shape in self.shapes:
           shape.update(dt / self.expected_frame_rate)
+
+  def field_strength(self, coords):
+    strength = 0
+    for ball in self.balls:
+      strength += ball.field_strength(coords)
+    return strength
+
 
 class Shape():
 
@@ -116,6 +124,7 @@ class Ball(Shape):
       random.random() * speed,
       random.random() * speed
     ])
+    self.charge = 1.0
 
   def draw(self):
     glPushMatrix()
@@ -140,6 +149,11 @@ class Ball(Shape):
         self.coords[index] += 2 * (lower_bound - component)
         self.velocity[index] = -self.velocity[index]
     
+  def field_strength(self, coords):
+      distance = np.linalg.norm(coords - self.coords)
+      if (distance < self.size + EPSILON):
+        return self.charge
+      return self.charge / ((1 + distance - self.size) ** 2)
 
 if __name__ == '__main__':
   window = AppWindow()
