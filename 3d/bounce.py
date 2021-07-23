@@ -79,14 +79,16 @@ class AppWindow(pyglet.window.Window):
         # math done on them [adding to another int], they turn into floats, which
         # causes something expecting ints to blow up.  This explicit cast fixes
         # that.
+        surface_vertex_count = len(surface_vertexes) // 3
         surface_indices = tuple(map(int, concat(triangles)))
+        surface_colors = tuple(surface_vertex_count * [64, 64, 192, 128])
         batch = pyglet.graphics.Batch()
-        batch.add_indexed(
-            len(surface_vertexes) // 3,
-            pyglet.gl.GL_TRIANGLES,
-            None,
-            surface_indices,
-            ("v3f", surface_vertexes),
+        batch.add_indexed(surface_vertex_count,
+                          pyglet.gl.GL_TRIANGLES,
+                          None,
+                          surface_indices,
+                          ("v3f", surface_vertexes),
+                          ("c4B", surface_colors),
         )
         return batch
 
@@ -104,6 +106,8 @@ class AppWindow(pyglet.window.Window):
         # Angle, axis
         #      pyglet.gl.glRotatef(45, 0, 1, 0)
 
+        pyglet.gl.glBlendFunc(pyglet.gl.GL_SRC_ALPHA, pyglet.gl.GL_ONE_MINUS_SRC_ALPHA);
+        pyglet.gl.glEnable(pyglet.gl.GL_BLEND);
         pyglet.gl.glEnable(pyglet.gl.GL_DEPTH_TEST)
         for shape in self.shapes:
             shape.draw()
