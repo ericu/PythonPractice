@@ -3,6 +3,7 @@
 import pyglet
 from pyglet.gl import *
 from itertools import chain
+
 import shapes
 
 def concat(lists):
@@ -17,10 +18,10 @@ class AppWindow(pyglet.window.Window):
     config = screen.get_best_config(template)
     super().__init__(config=config, resizable=True)
     self.shapes = [
-      Cube((-0.5, 0.5), (-0.5, 0.5), (-0.5, 0.5)),
-      Point((0.5, 0, 0), (255, 128, 64))
+      Box(),
+      Point(0.5, 0, 0)
     ]
-#    self.cube2 = Cube((-0.1, 0.1), (-0.1, 0.1), (-0.1, 0.1), (255, 128, 64))
+#    self.cube2 = Box((-0.1, 0.1), (-0.1, 0.1), (-0.1, 0.1), (255, 128, 64))
 
   def on_draw(self):
 
@@ -28,7 +29,7 @@ class AppWindow(pyglet.window.Window):
 
       glMatrixMode(GL_PROJECTION)
       glLoadIdentity()
-      gluPerspective(45, 1, 0.1, 100)
+      gluPerspective(85, self.width / self.height, 0.1, 100)
 
       glMatrixMode(GL_MODELVIEW)
       glLoadIdentity()
@@ -47,38 +48,51 @@ class AppWindow(pyglet.window.Window):
     glViewport(0, 0, self.width, self.height)
     return pyglet.event.EVENT_HANDLED
 
+class Shape():
 
-class Cube():
-  def __init__(self, x_dims, y_dims, z_dims, color=None):
-    self.coords = tuple(concat([(x, y, z) for x in x_dims
-                                          for y in y_dims
-                                          for z in z_dims]))
-    self.indices = [
+  def draw():
+    raise NotImplementedError()
+
+class Box(Shape):
+  def __init__(self):
+    self.wall_coords = [
+      -1, -1, -1,
+      -1, -1,  1,
+      -1,  1, -1,
+      -1,  1,  1,
+       1, -1, -1,
+       1, -1,  1,
+       1,  1, -1,
+       1,  1,  1,
+    ]
+    self.wall_indices = [
       0, 1, 3, 2, # Left wall
       4, 5, 7, 6, # Right wall
       2, 3, 7, 6, # Ceiling
       0, 1, 5, 4, # Floor
-      0, 2, 6, 4 # Back wall
     ]
-    if color:
-      floor_color = color
-      ceiling_color = color
-    else:
-      floor_color = (64, 64, 64)
-      ceiling_color = (192, 192, 192)
-    self.colors = tuple((2 * floor_color + 2 * ceiling_color) * 2)
-    self.vertex_count = len(self.coords) // 3
+    floor_color = (64, 64, 64)
+    ceiling_color = (192, 192, 192)
+    self.wall_colors = tuple((2 * floor_color + 2 * ceiling_color) * 2)
+    self.wall_vertex_count = len(self.wall_coords) // 3
+    self.back_indices = [0, 2, 6, 4]
+    self.back_colors = tuple(8 * [32, 32, 64])
+    print(len(self.wall_colors))
+    print(len(self.back_colors))
 
   def draw(self):
-    pyglet.graphics.draw_indexed(self.vertex_count, pyglet.gl.GL_QUADS,
-                                 self.indices,
-                                 ('v3f', self.coords),
-                                 ('c3B', self.colors))
+    pyglet.graphics.draw_indexed(self.wall_vertex_count, pyglet.gl.GL_QUADS,
+                                 self.wall_indices,
+                                 ('v3f', self.wall_coords),
+                                 ('c3B', self.wall_colors))
+    pyglet.graphics.draw_indexed(self.wall_vertex_count, pyglet.gl.GL_QUADS,
+                                 self.back_indices,
+                                 ('v3f', self.wall_coords),
+                                 ('c3B', self.back_colors))
 
-class Point():
-  def __init__(self, coords, color):
-    self.coords = coords
-    self.color = color
+class Point(Shape):
+  def __init__(self, x, y, z):
+    self.coords = (x, y, x)
     self.size = 0.1
     geometry = shapes.make_sphere_geometry(4)
     self.vertices = tuple([i for i in concat(geometry['points'])])
@@ -86,7 +100,6 @@ class Point():
     self.colors = geometry['colors']
 
   def draw(self):
-    print('draw point')
     glPushMatrix()
     glScalef(self.size, self.size, self.size)
     glTranslatef(*self.coords)
@@ -96,7 +109,6 @@ class Point():
                                  ('v3f', self.vertices),
                                  ('c4B', self.colors))
     glPopMatrix()
-    
 
 if __name__ == '__main__':
   window = AppWindow()
