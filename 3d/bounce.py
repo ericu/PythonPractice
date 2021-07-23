@@ -6,7 +6,7 @@ import random
 import numpy as np
 import mcubes  # Requires scipy as well
 import pyglet
-import pyglet.gl as gl # Requires PyOpenGL PyOpenGL_accelerate
+import pyglet.gl as gl  # Requires PyOpenGL PyOpenGL_accelerate
 
 import shapes
 
@@ -83,12 +83,13 @@ class AppWindow(pyglet.window.Window):
         surface_indices = tuple(map(int, concat(triangles)))
         surface_colors = tuple(surface_vertex_count * [64, 64, 192, 128])
         batch = pyglet.graphics.Batch()
-        batch.add_indexed(surface_vertex_count,
-                          gl.GL_TRIANGLES,
-                          None,
-                          surface_indices,
-                          ("v3f", surface_vertexes),
-                          ("c4B", surface_colors),
+        batch.add_indexed(
+            surface_vertex_count,
+            gl.GL_TRIANGLES,
+            None,
+            surface_indices,
+            ("v3f", surface_vertexes),
+            ("c4B", surface_colors),
         )
         return batch
 
@@ -106,9 +107,8 @@ class AppWindow(pyglet.window.Window):
         # Angle, axis
         #      gl.glRotatef(45, 0, 1, 0)
 
-        gl.glBlendFunc(gl.GL_SRC_ALPHA,
-                              gl.GL_ONE_MINUS_SRC_ALPHA);
-        gl.glEnable(gl.GL_BLEND);
+        gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+        gl.glEnable(gl.GL_BLEND)
         gl.glEnable(gl.GL_DEPTH_TEST)
         for shape in self.shapes:
             shape.draw()
