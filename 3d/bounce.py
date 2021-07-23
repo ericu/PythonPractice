@@ -123,11 +123,13 @@ class Ball(Shape):
   def update(self, dt):
     self.coords += self.velocity
     for (index, component) in enumerate(self.coords):
-      if component > 1:
-        component = 1 - component
+      upper_bound = 1 - self.size
+      lower_bound = -1 + self.size
+      if component > upper_bound:
+        self.coords[index] += 2 * (upper_bound - component)
         self.velocity[index] = -self.velocity[index]
-      elif component < -1:
-        component = -1 - component
+      elif component < lower_bound:
+        self.coords[index] += 2 * (lower_bound - component)
         self.velocity[index] = -self.velocity[index]
     
 
