@@ -42,15 +42,19 @@ class AppWindow(pyglet.window.Window):
         self.surface_to_draw = None
         self.draw_voxels = False
         self.voxels_to_draw = None
+        self.samples = 30
 
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.C:
-            self.surface_to_draw = self.capture_surface()
+            field = self.field_over_matrix()
+            self.surface_to_draw = self.capture_surface(field)
         elif symbol == pyglet.window.key.V:
-            self.voxels_to_draw = self.capture_voxels()
+            field = self.field_over_matrix()
+            self.voxels_to_draw = self.capture_voxels(field)
         elif symbol == pyglet.window.key.B:
-            self.surface_to_draw = self.capture_surface()
-            self.voxels_to_draw = self.capture_voxels()
+            field = self.field_over_matrix()
+            self.surface_to_draw = self.capture_surface(field)
+            self.voxels_to_draw = self.capture_voxels(field)
         elif symbol == pyglet.window.key.D:
             self.draw_surface = not self.draw_surface
         elif symbol == pyglet.window.key.E:
@@ -58,17 +62,17 @@ class AppWindow(pyglet.window.Window):
         elif symbol == pyglet.window.key.Q:
             sys.exit()
 
-    def field_over_matrix(self, samples):
-        samples_imaginary = samples * 1j
+    def field_over_matrix(self):
+        samples_imaginary = self.samples * 1j
         x_values, y_values, z_values = np.mgrid[
             -1:1:samples_imaginary,
             -1:1:samples_imaginary,
             -1:1:samples_imaginary,
         ]
-        output = np.zeros([samples, samples, samples])
-        for i in range(samples):
-            for j in range(samples):
-                for k in range(samples):
+        output = np.zeros([self.samples, self.samples, self.samples])
+        for i in range(self.samples):
+            for j in range(self.samples):
+                for k in range(self.samples):
                     x = x_values[i][j][k]
                     y = y_values[i][j][k]
                     z = z_values[i][j][k]
@@ -76,23 +80,21 @@ class AppWindow(pyglet.window.Window):
 
         return output
 
-    def capture_voxels(self):
+    def capture_voxels(self, field):
         self.draw_voxels = True
 
-        samples = 30
+        values_in_set = field > 0.6
 
-        values_in_set = self.field_over_matrix(samples) > 0.6
-
-        samples_imaginary = samples * 1j
+        samples_imaginary = self.samples * 1j
         x_values, y_values, z_values = np.mgrid[
             -1:1:samples_imaginary,
             -1:1:samples_imaginary,
             -1:1:samples_imaginary,
         ]
         coords_list = []
-        for i in range(samples):
-            for j in range(samples):
-                for k in range(samples):
+        for i in range(self.samples):
+            for j in range(self.samples):
+                for k in range(self.samples):
                     if values_in_set[i][j][k]:
                         x = x_values[i][j][k]
                         y = y_values[i][j][k]
@@ -100,18 +102,14 @@ class AppWindow(pyglet.window.Window):
                         coords_list.append((x, y, z))
 
         # N samples means a range of [0...N-1], so a width of N-1 units.
-        return VoxelList(coords_list, 1 / (samples - 1))
+        return VoxelList(coords_list, 1 / (self.samples - 1))
 
-    def capture_surface(self):
+    def capture_surface(self, field):
         self.draw_surface = True
 
-        samples = 30
-
-        vertices, triangles = mcubes.marching_cubes(
-            self.field_over_matrix(samples), 0.6
-        )
+        vertices, triangles = mcubes.marching_cubes(field, 0.6)
         surface_vertexes = tuple(
-            v * 2 / (samples - 1) - 1 for v in concat(vertices)
+            v * 2 / (self.samples - 1) - 1 for v in concat(vertices)
         )
         # The indices appear to be ints, but when I pass them in and they have
         # math done on them [adding to another int], they turn into floats,
