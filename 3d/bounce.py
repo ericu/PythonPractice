@@ -1,12 +1,12 @@
 #!/usr/bin/python3
 
-import pyglet
-from pyglet.gl import *  # Requires PyOpenGL PyOpenGL_accelerate
 from itertools import chain
-import numpy as np
 import random
+
+import numpy as np
 import mcubes  # Requires scipy as well
-import sys
+import pyglet
+import pyglet.gl  # Requires PyOpenGL PyOpenGL_accelerate
 
 import shapes
 
@@ -18,6 +18,7 @@ def concat(lists):
     return chain.from_iterable(lists)
 
 
+# pylint: disable=abstract-method
 class AppWindow(pyglet.window.Window):
     def __init__(self):
         display = pyglet.canvas.get_display()
@@ -34,7 +35,7 @@ class AppWindow(pyglet.window.Window):
         self.balls = [Ball(0, 0, 0) for i in range(10)]
         self.shapes = [Box()] + self.balls
         pyglet.clock.schedule_interval(
-            lambda dt: self.update(dt), EXPECTED_FRAME_RATE
+            lambda delta_t: self.update(delta_t), EXPECTED_FRAME_RATE
         )
         self.draw_surface = False
         self.surface_to_draw = None
@@ -49,23 +50,30 @@ class AppWindow(pyglet.window.Window):
     def capture_surface(self):
 
         samples = 50
-        samples_imaginary = samples * 1j
-        X, Y, Z = np.mgrid[
-            -1:1:samples_imaginary,
-            -1:1:samples_imaginary,
-            -1:1:samples_imaginary,
-        ]
-        output = np.zeros([samples, samples, samples])
-        for i in range(samples):
-            for j in range(samples):
-                for k in range(samples):
-                    x = X[i][j][k]
-                    y = Y[i][j][k]
-                    z = Z[i][j][k]
-                    output[i][j][k] = self.field_strength(np.array([x, y, z]))
-        vertices, triangles = mcubes.marching_cubes(output, 0.6)
+
+        def generate_surface():
+            samples_imaginary = samples * 1j
+            x_values, y_values, z_values = np.mgrid[
+                -1:1:samples_imaginary,
+                -1:1:samples_imaginary,
+                -1:1:samples_imaginary,
+            ]
+            output = np.zeros([samples, samples, samples])
+            for i in range(samples):
+                for j in range(samples):
+                    for k in range(samples):
+                        x = x_values[i][j][k]
+                        y = y_values[i][j][k]
+                        z = z_values[i][j][k]
+                        output[i][j][k] = self.field_strength(
+                            np.array([x, y, z])
+                        )
+
+            return mcubes.marching_cubes(output, 0.6)
+
+        vertices, triangles = generate_surface()
         surface_vertexes = tuple(
-            [v * 2 / (samples - 1) - 1 for v in concat(vertices)]
+            v * 2 / (samples - 1) - 1 for v in concat(vertices)
         )
         # The indices appear to be ints, but when I pass them in and they have
         # math done on them [adding to another int], they turn into floats, which
@@ -86,30 +94,30 @@ class AppWindow(pyglet.window.Window):
 
         self.clear()
 
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        gluPerspective(85, self.width / self.height, 0.1, 100)
+        pyglet.gl.glMatrixMode(pyglet.gl.GL_PROJECTION)
+        pyglet.gl.glLoadIdentity()
+        pyglet.gl.gluPerspective(85, self.width / self.height, 0.1, 100)
 
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
-        glTranslatef(0, 0, -2)
+        pyglet.gl.glMatrixMode(pyglet.gl.GL_MODELVIEW)
+        pyglet.gl.glLoadIdentity()
+        pyglet.gl.glTranslatef(0, 0, -2)
         # Angle, axis
-        #      glRotatef(45, 0, 1, 0)
+        #      pyglet.gl.glRotatef(45, 0, 1, 0)
 
-        glEnable(GL_DEPTH_TEST)
+        pyglet.gl.glEnable(pyglet.gl.GL_DEPTH_TEST)
         for shape in self.shapes:
             shape.draw()
 
         if self.draw_surface and self.surface_to_draw:
             self.surface_to_draw.draw()
 
-    def on_resize(self, arg, arg2):
-        glViewport(0, 0, self.width, self.height)
+    def on_resize(self, width, height):
+        pyglet.gl.glViewport(0, 0, width, height)
         return pyglet.event.EVENT_HANDLED
 
-    def update(self, dt):
+    def update(self, delta_t):
         for shape in self.shapes:
-            shape.update(dt / EXPECTED_FRAME_RATE)
+            shape.update(delta_t / EXPECTED_FRAME_RATE)
 
     def field_strength(self, coords):
         strength = 0
@@ -129,48 +137,20 @@ class Shape:
 class Box(Shape):
     def __init__(self):
         self.wall_coords = [
-            -1,
-            -1,
-            -1,
-            -1,
-            -1,
-            1,
-            -1,
-            1,
-            -1,
-            -1,
-            1,
-            1,
-            1,
-            -1,
-            -1,
-            1,
-            -1,
-            1,
-            1,
-            1,
-            -1,
-            1,
-            1,
-            1,
+            -1, -1, -1,
+            -1, -1,  1,
+            -1,  1, -1,
+            -1,  1,  1,
+             1, -1, -1,
+             1, -1,  1,
+             1,  1, -1,
+             1,  1,  1,
         ]
         self.wall_indices = [
-            0,
-            1,
-            3,
-            2,  # Left wall
-            4,
-            5,
-            7,
-            6,  # Right wall
-            2,
-            3,
-            7,
-            6,  # Ceiling
-            0,
-            1,
-            5,
-            4,  # Floor
+            0, 1, 3, 2,  # Left wall
+            4, 5, 7, 6,  # Right wall
+            2, 3, 7, 6,  # Ceiling
+            0, 1, 5, 4,  # Floor
         ]
         floor_color = (64, 64, 64)
         ceiling_color = (192, 192, 192)
@@ -200,9 +180,8 @@ class Ball(Shape):
     def __init__(self, x, y, z):
         self.coords = np.array([float(x), float(y), float(z)])
         self.size = 0.1
-        self.wall_buffer = 0.15
         geometry = shapes.make_sphere_geometry(4)
-        self.vertices = tuple([i for i in concat(geometry["points"])])
+        self.vertices = tuple(i for i in concat(geometry["points"]))
         self.indices = tuple(geometry["faces"])
         self.colors = geometry["colors"]
         # Not uniform over the sphere, but fine for this application.
@@ -217,9 +196,9 @@ class Ball(Shape):
         self.charge = 1.0
 
     def draw(self):
-        glPushMatrix()
-        glTranslatef(self.coords[0], self.coords[1], self.coords[2])
-        glScalef(self.size, self.size, self.size)
+        pyglet.gl.glPushMatrix()
+        pyglet.gl.glTranslatef(self.coords[0], self.coords[1], self.coords[2])
+        pyglet.gl.glScalef(self.size, self.size, self.size)
         pyglet.graphics.draw_indexed(
             len(self.vertices) // 3,
             pyglet.gl.GL_TRIANGLES,
@@ -227,13 +206,14 @@ class Ball(Shape):
             ("v3f", self.vertices),
             ("c4B", self.colors),
         )
-        glPopMatrix()
+        pyglet.gl.glPopMatrix()
 
     def update(self, frame_scaling):
         self.coords += self.velocity * frame_scaling
+        wall_buffer = 0.15
         for (index, component) in enumerate(self.coords):
-            upper_bound = 1 - self.wall_buffer
-            lower_bound = -1 + self.wall_buffer
+            upper_bound = 1 - wall_buffer
+            lower_bound = -1 + wall_buffer
             if component > upper_bound:
                 self.coords[index] += 2 * (upper_bound - component)
                 self.velocity[index] = -self.velocity[index]
@@ -243,9 +223,9 @@ class Ball(Shape):
 
     def field_strength(self, coords):
         distance = np.linalg.norm(coords - self.coords)
-        if distance < self.wall_buffer + EPSILON:
+        if distance < self.size + EPSILON:
             return self.charge
-        return self.charge / ((1 + 4 * (distance - self.wall_buffer)) ** 3)
+        return self.charge / ((1 + 4 * (distance - self.size)) ** 3)
 
 
 if __name__ == "__main__":
