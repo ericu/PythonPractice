@@ -22,6 +22,9 @@ class AppWindow(pyglet.window.Window):
     self.shapes = [Box()]
     for i in range(10):
       self.shapes.append(Ball(0, 0, 0))
+    self.expected_frame_rate = 1 / 60.0
+    pyglet.clock.schedule_interval(lambda dt: self.update(dt),
+                                   self.expected_frame_rate)
 
   def on_draw(self):
 
@@ -49,14 +52,14 @@ class AppWindow(pyglet.window.Window):
 
   def update(self, dt):
       for shape in self.shapes:
-          shape.update(dt)
+          shape.update(dt / self.expected_frame_rate)
 
 class Shape():
 
   def draw(self):
     raise NotImplementedError()
 
-  def update(self, dt):
+  def update(self, frame_scaling):
     pass
 
 class Box(Shape):
@@ -120,8 +123,8 @@ class Ball(Shape):
                                  ('c4B', self.colors))
     glPopMatrix()
 
-  def update(self, dt):
-    self.coords += self.velocity
+  def update(self, frame_scaling):
+    self.coords += self.velocity * frame_scaling
     for (index, component) in enumerate(self.coords):
       upper_bound = 1 - self.size
       lower_bound = -1 + self.size
@@ -135,5 +138,4 @@ class Ball(Shape):
 
 if __name__ == '__main__':
   window = AppWindow()
-  pyglet.clock.schedule_interval(lambda dt: window.update(dt), 1/60.0)
   pyglet.app.run()
