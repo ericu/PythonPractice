@@ -22,7 +22,11 @@ class AppWindow(pyglet.window.Window):
     self.shapes = [Box()]
     for i in range(10):
       self.shapes.append(Ball(0, 0, 0))
-    self.expected_frame_rate = 1 / 60.0
+    # This appears to draw more smoothly at 65fps rather than 60fps; I'm
+    # guessing it's syncing to the screen refresh, and so this is giving me a
+    # true 60fps, whereas asking for 60fps may miss a frame here and there.
+    # todo: A frame-rate counter would tell me whether that's the case.
+    self.expected_frame_rate = 1 / 65.0
     pyglet.clock.schedule_interval(lambda dt: self.update(dt),
                                    self.expected_frame_rate)
 
@@ -106,10 +110,11 @@ class Ball(Shape):
     self.indices = tuple(geometry['faces'])
     self.colors = geometry['colors']
     # Not uniform over the sphere, but fine for this application.
+    speed = 0.03
     self.velocity = np.array([
-      random.random() * 0.05,
-      random.random() * 0.05,
-      random.random() * 0.05
+      random.random() * speed,
+      random.random() * speed,
+      random.random() * speed
     ])
 
   def draw(self):
