@@ -46,12 +46,13 @@ class AppWindow(pyglet.window.Window):
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.C:
             self.surface_to_draw = self.capture_surface()
-            self.draw_surface = True
-        elif symbol == pyglet.window.key.D:
-            self.draw_surface = not self.draw_surface
         elif symbol == pyglet.window.key.V:
             self.voxels_to_draw = self.capture_voxels()
-            self.draw_voxels = True
+        elif symbol == pyglet.window.key.B:
+            self.surface_to_draw = self.capture_surface()
+            self.voxels_to_draw = self.capture_voxels()
+        elif symbol == pyglet.window.key.D:
+            self.draw_surface = not self.draw_surface
         elif symbol == pyglet.window.key.E:
             self.draw_voxels = not self.draw_voxels
         elif symbol == pyglet.window.key.Q:
@@ -78,6 +79,7 @@ class AppWindow(pyglet.window.Window):
         return output
 
     def capture_voxels(self):
+        self.draw_voxels = True
 
         samples = 30
 
@@ -100,9 +102,10 @@ class AppWindow(pyglet.window.Window):
                         coords_list.append((x, y, z))
 
         # N samples means a range of [0...N-1], so a width of N-1 units.
-        return VoxelList(coords_list, 2 / (samples - 1))
+        return VoxelList(coords_list, 1 / (samples - 1))
 
     def capture_surface(self):
+        self.draw_surface = True
 
         samples = 30
 
