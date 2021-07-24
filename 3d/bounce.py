@@ -72,6 +72,17 @@ class AppWindow(pyglet.window.Window):
             -1:1:samples_imaginary,
             -1:1:samples_imaginary,
         ]
+        # There are 2 approaches I'm considering for speeding this up.
+        # One is simple parallelization, by passing slices of the job to
+        # different processors.  That'll require a bit of refactoring so that we
+        # can pass simple job descriptions across process boundaries.  As things
+        # are set up now, we'd have to pass self, which can't be pickled.
+        # Another is to try to reduce the number of points that need
+        # calculation.  We could start with anything within some distance of a
+        # ball, and then look at all uncomputed neighbors of points with values
+        # above the cutoff, repeating until there are none left uncomputed.
+        # That approach likely wouldn't parallelize well, as we'd have to pass
+        # lots of incremental state back and forth.
         output = np.zeros([self.samples, self.samples, self.samples])
         for i in range(self.samples):
             for j in range(self.samples):
