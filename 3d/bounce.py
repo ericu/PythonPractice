@@ -3,7 +3,8 @@
 from itertools import chain
 import random
 import sys
-import time
+
+# import time
 
 import numpy as np
 import mcubes  # Requires scipy as well
@@ -64,7 +65,7 @@ class AppWindow(pyglet.window.Window):
             sys.exit()
 
     def field_over_matrix(self):
-        start_time = time.time()
+        # start_time = time.time()
         samples_imaginary = self.samples * 1j
         x_values, y_values, z_values = np.mgrid[
             -1:1:samples_imaginary,
@@ -79,13 +80,13 @@ class AppWindow(pyglet.window.Window):
                     y = y_values[i][j][k]
                     z = z_values[i][j][k]
                     output[i][j][k] = self.field_strength(np.array([x, y, z]))
-        end_time = time.time()
-        print('field', end_time - start_time)
+        # end_time = time.time()
+        # print('field', end_time - start_time)
 
         return output
 
     def capture_voxels(self, field):
-        start_time = time.time()
+        # start_time = time.time()
         self.draw_voxels = True
 
         values_in_set = field > 0.6
@@ -108,12 +109,12 @@ class AppWindow(pyglet.window.Window):
 
         # N samples means a range of [0...N-1], so a width of N-1 units.
         v = VoxelList(coords_list, 1 / (self.samples - 1))
-        end_time = time.time()
-        print('voxels', end_time - start_time)
+        # end_time = time.time()
+        # print('voxels', end_time - start_time)
         return v
 
     def capture_surface(self, field):
-        start_time = time.time()
+        # start_time = time.time()
         self.draw_surface = True
 
         vertices, triangles = mcubes.marching_cubes(field, 0.6)
@@ -136,8 +137,8 @@ class AppWindow(pyglet.window.Window):
             ("v3f", surface_vertexes),
             ("c4B", surface_colors),
         )
-        end_time = time.time()
-        print('surface', end_time - start_time)
+        # end_time = time.time()
+        # print('surface', end_time - start_time)
         return batch
 
     def on_draw(self):
