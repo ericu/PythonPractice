@@ -5,8 +5,7 @@ from collections import namedtuple
 import concurrent.futures
 import random
 import sys
-
-# import time
+import time
 
 import numpy as np
 import mcubes  # Requires scipy as well
@@ -95,7 +94,9 @@ class AppWindow(pyglet.window.Window):
             sys.exit()
 
     def field_over_matrix(self):
-        field_info = filter(None, [shape.field_info() for shape in self.shapes])
+        start_time = time.time()
+        field_info = list(filter(None,
+                                 [shape.field_info() for shape in self.shapes]))
         
         # Another approach to optimization is to try to reduce the number of
         # points that need calculation.  We could start with anything within
@@ -103,31 +104,22 @@ class AppWindow(pyglet.window.Window):
         # points with values above the cutoff, repeating until there are none
         # left uncomputed.  That approach likely wouldn't parallelize well, as
         # we'd have to pass lots of incremental state back and forth.
-#        argsets = zip(self.samples * [self.samples],
-#                      self.samples * [field_info],
-#                      range(self.samples))
         output = [None] * self.samples
+
         with concurrent.futures.ProcessPoolExecutor() as executor:
             futures = { executor.submit(get_field_for_slice, field_info,
                                         self.samples, i) : i
                         for i in range(self.samples) }
             for future in concurrent.futures.as_completed(futures):
                 i = futures[future]
-                print('completed', i)
                 output[i] = future.result()
-                print('output[i]', output[i])
 
-#            output = np.array(executor.map(get_field_for_slice, argsets))
-#            print('output', output)
-#            print('output', [a for a in output])
-        # end_time = time.time()
-        # print('field', end_time - start_time)
+        end_time = time.time()
+        print('field', end_time - start_time)
 
-        print(output)
         return np.array(output)
 
     def capture_voxels(self, field):
-        # start_time = time.time()
         self.draw_voxels = True
 
         values_in_set = field > 0.6
@@ -150,12 +142,9 @@ class AppWindow(pyglet.window.Window):
 
         # N samples means a range of [0...N-1], so a width of N-1 units.
         v = VoxelList(coords_list, 1 / (self.samples - 1))
-        # end_time = time.time()
-        # print('voxels', end_time - start_time)
         return v
 
     def capture_surface(self, field):
-        # start_time = time.time()
         self.draw_surface = True
 
         vertices, triangles = mcubes.marching_cubes(field, 0.6)
@@ -178,8 +167,6 @@ class AppWindow(pyglet.window.Window):
             ("v3f", surface_vertexes),
             ("c4B", surface_colors),
         )
-        # end_time = time.time()
-        # print('surface', end_time - start_time)
         return batch
 
     def on_draw(self):
@@ -332,6 +319,7 @@ class Ball(Shape):
         self.colors = geometry["colors"]
         # Not uniform over the sphere, but fine for this application.
         speed = 0.5 * EXPECTED_FRAME_RATE
+
         self.velocity = np.array(
             [
                 random.random() * speed,
