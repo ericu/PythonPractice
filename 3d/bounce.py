@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
 from itertools import chain
+from collections import namedtuple
+import concurrent.futures
 import random
 import sys
 
@@ -20,6 +22,34 @@ EXPECTED_FRAME_RATE = 1 / 65.0
 def concat(lists):
     return chain.from_iterable(lists)
 
+
+BallFieldInfo = namedtuple("BallFieldInfo", ("charge", "size", "coords"))
+
+def get_field_for_point(field_info, coords):
+    strength = 0
+    for shape in field_info:
+        distance = np.linalg.norm(coords - shape.coords)
+        if distance < shape.size + EPSILON:
+            strength += shape.charge
+        else:
+            strength += shape.charge / ((1 + 4 * (distance - shape.size)) ** 3)
+    return strength
+
+def get_field_for_slice(field_info, samples, i):
+    # start_time = time.time()
+    samples_imaginary = samples * 1j
+    x = i * 2 / (samples - 1) - 1
+    y_values, z_values = np.mgrid[
+        -1:1:samples_imaginary,
+        -1:1:samples_imaginary,
+    ]
+    output = np.zeros([samples, samples])
+    for j in range(samples):
+        for k in range(samples):
+            y = y_values[j][k]
+            z = z_values[j][k]
+            output[j][k] = get_field_for_point(field_info, np.array([x, y, z]))
+    return output
 
 # pylint: disable=abstract-method
 class AppWindow(pyglet.window.Window):
@@ -65,36 +95,36 @@ class AppWindow(pyglet.window.Window):
             sys.exit()
 
     def field_over_matrix(self):
-        # start_time = time.time()
-        samples_imaginary = self.samples * 1j
-        x_values, y_values, z_values = np.mgrid[
-            -1:1:samples_imaginary,
-            -1:1:samples_imaginary,
-            -1:1:samples_imaginary,
-        ]
-        # There are 2 approaches I'm considering for speeding this up.
-        # One is simple parallelization, by passing slices of the job to
-        # different processors.  That'll require a bit of refactoring so that we
-        # can pass simple job descriptions across process boundaries.  As things
-        # are set up now, we'd have to pass self, which can't be pickled.
-        # Another is to try to reduce the number of points that need
-        # calculation.  We could start with anything within some distance of a
-        # ball, and then look at all uncomputed neighbors of points with values
-        # above the cutoff, repeating until there are none left uncomputed.
-        # That approach likely wouldn't parallelize well, as we'd have to pass
-        # lots of incremental state back and forth.
-        output = np.zeros([self.samples, self.samples, self.samples])
-        for i in range(self.samples):
-            for j in range(self.samples):
-                for k in range(self.samples):
-                    x = x_values[i][j][k]
-                    y = y_values[i][j][k]
-                    z = z_values[i][j][k]
-                    output[i][j][k] = self.field_strength(np.array([x, y, z]))
+        field_info = filter(None, [shape.field_info() for shape in self.shapes])
+        
+        # Another approach to optimization is to try to reduce the number of
+        # points that need calculation.  We could start with anything within
+        # some distance of a ball, and then look at all uncomputed neighbors of
+        # points with values above the cutoff, repeating until there are none
+        # left uncomputed.  That approach likely wouldn't parallelize well, as
+        # we'd have to pass lots of incremental state back and forth.
+#        argsets = zip(self.samples * [self.samples],
+#                      self.samples * [field_info],
+#                      range(self.samples))
+        output = [None] * self.samples
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            futures = { executor.submit(get_field_for_slice, field_info,
+                                        self.samples, i) : i
+                        for i in range(self.samples) }
+            for future in concurrent.futures.as_completed(futures):
+                i = futures[future]
+                print('completed', i)
+                output[i] = future.result()
+                print('output[i]', output[i])
+
+#            output = np.array(executor.map(get_field_for_slice, argsets))
+#            print('output', output)
+#            print('output', [a for a in output])
         # end_time = time.time()
         # print('field', end_time - start_time)
 
-        return output
+        print(output)
+        return np.array(output)
 
     def capture_voxels(self, field):
         # start_time = time.time()
@@ -199,6 +229,8 @@ class Shape:
     def update(self, frame_scaling):
         pass
 
+    def field_info(self):
+        return None
 
 class Box(Shape):
     def __init__(self):
@@ -341,6 +373,8 @@ class Ball(Shape):
             return self.charge
         return self.charge / ((1 + 4 * (distance - self.size)) ** 3)
 
+    def field_info(self):
+      return BallFieldInfo(self.charge, self.size, self.coords)
 
 if __name__ == "__main__":
     window = AppWindow()
