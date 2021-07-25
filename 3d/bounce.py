@@ -24,6 +24,7 @@ def concat(lists):
 
 BallFieldInfo = namedtuple("BallFieldInfo", ("charge", "size", "coords"))
 
+
 def get_field_for_point(field_info, coords):
     strength = 0
     for shape in field_info:
@@ -33,6 +34,7 @@ def get_field_for_point(field_info, coords):
         else:
             strength += shape.charge / ((1 + 4 * (distance - shape.size)) ** 3)
     return strength
+
 
 def get_field_for_slice(field_info, samples, i):
     # start_time = time.time()
@@ -49,6 +51,7 @@ def get_field_for_slice(field_info, samples, i):
             z = z_values[j][k]
             output[j][k] = get_field_for_point(field_info, np.array([x, y, z]))
     return output
+
 
 # pylint: disable=abstract-method
 class AppWindow(pyglet.window.Window):
@@ -95,9 +98,10 @@ class AppWindow(pyglet.window.Window):
 
     def field_over_matrix(self):
         start_time = time.time()
-        field_info = list(filter(None,
-                                 [shape.field_info() for shape in self.shapes]))
-        
+        field_info = list(
+            filter(None, [shape.field_info() for shape in self.shapes])
+        )
+
         # Another approach to optimization is to try to reduce the number of
         # points that need calculation.  We could start with anything within
         # some distance of a ball, and then look at all uncomputed neighbors of
@@ -107,15 +111,18 @@ class AppWindow(pyglet.window.Window):
         output = [None] * self.samples
 
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            futures = { executor.submit(get_field_for_slice, field_info,
-                                        self.samples, i) : i
-                        for i in range(self.samples) }
+            futures = {
+                executor.submit(
+                    get_field_for_slice, field_info, self.samples, i
+                ): i
+                for i in range(self.samples)
+            }
             for future in concurrent.futures.as_completed(futures):
                 i = futures[future]
                 output[i] = future.result()
 
         end_time = time.time()
-        print('field', end_time - start_time)
+        print("field", end_time - start_time)
 
         return np.array(output)
 
@@ -218,6 +225,7 @@ class Shape:
 
     def field_info(self):
         return None
+
 
 class Box(Shape):
     def __init__(self):
@@ -362,7 +370,8 @@ class Ball(Shape):
         return self.charge / ((1 + 4 * (distance - self.size)) ** 3)
 
     def field_info(self):
-      return BallFieldInfo(self.charge, self.size, self.coords)
+        return BallFieldInfo(self.charge, self.size, self.coords)
+
 
 if __name__ == "__main__":
     window = AppWindow()
