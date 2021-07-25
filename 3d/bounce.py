@@ -11,6 +11,7 @@ import numpy as np
 import mcubes  # Requires scipy as well
 import pyglet
 from pyglet import gl  # Requires PyOpenGL PyOpenGL_accelerate
+import psutil
 
 import shapes
 
@@ -23,6 +24,9 @@ def concat(lists):
 
 
 BallFieldInfo = namedtuple("BallFieldInfo", ("charge", "size", "coords"))
+TimingRecord = namedtuple(
+    "TimingRecord", ("max_workers", "samples", "duration")
+)
 
 
 def get_field_for_point(field_info, coords):
@@ -76,27 +80,30 @@ class AppWindow(pyglet.window.Window):
         self.surface_to_draw = None
         self.draw_voxels = False
         self.voxels_to_draw = None
-        self.samples = 30
+        self.samples = 100
+        self.max_workers = psutil.cpu_count()
 
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.C:
-            field = self.field_over_matrix()
-            self.surface_to_draw = self.capture_surface(field)
+            field = self.field_over_matrix(self.samples, self.max_workers)
+            self.surface_to_draw = self.capture_surface(field, self.samples)
         elif symbol == pyglet.window.key.V:
-            field = self.field_over_matrix()
-            self.voxels_to_draw = self.capture_voxels(field)
+            field = self.field_over_matrix(self.samples, self.max_workers)
+            self.voxels_to_draw = self.capture_voxels(field, self.samples)
         elif symbol == pyglet.window.key.B:
-            field = self.field_over_matrix()
-            self.surface_to_draw = self.capture_surface(field)
-            self.voxels_to_draw = self.capture_voxels(field)
+            field = self.field_over_matrix(self.samples, self.max_workers)
+            self.surface_to_draw = self.capture_surface(field, self.samples)
+            self.voxels_to_draw = self.capture_voxels(field, self.samples)
         elif symbol == pyglet.window.key.D:
             self.draw_surface = not self.draw_surface
         elif symbol == pyglet.window.key.E:
             self.draw_voxels = not self.draw_voxels
+        elif symbol == pyglet.window.key.T:
+            self.run_speed_test()
         elif symbol == pyglet.window.key.Q:
             sys.exit()
 
-    def field_over_matrix(self):
+    def field_over_matrix(self, samples, max_workers):
         start_time = time.time()
         field_info = list(
             filter(None, [shape.field_info() for shape in self.shapes])
@@ -108,39 +115,51 @@ class AppWindow(pyglet.window.Window):
         # points with values above the cutoff, repeating until there are none
         # left uncomputed.  That approach likely wouldn't parallelize well, as
         # we'd have to pass lots of incremental state back and forth.
-        output = [None] * self.samples
+        output = [None] * samples
 
-        with concurrent.futures.ProcessPoolExecutor() as executor:
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=max_workers
+        ) as executor:
             futures = {
-                executor.submit(
-                    get_field_for_slice, field_info, self.samples, i
-                ): i
-                for i in range(self.samples)
+                executor.submit(get_field_for_slice, field_info, samples, i): i
+                for i in range(samples)
             }
             for future in concurrent.futures.as_completed(futures):
                 i = futures[future]
                 output[i] = future.result()
 
         end_time = time.time()
-        print("field took", end_time - start_time)
 
         return np.array(output)
 
-    def capture_voxels(self, field):
+    def run_speed_test(self):
+        records = []
+        for max_workers in range(4, psutil.cpu_count() * 2 + 2, 2):
+            for samples in [5, 15, 25, 35, 45, 55]:
+                print(f"Running {samples} samples with {max_workers} workers.")
+                start_time = time.time()
+                self.field_over_matrix(samples, max_workers)
+                end_time = time.time()
+                duration = end_time - start_time
+                records.append(TimingRecord(max_workers, samples, duration))
+        print(records)
+        return records
+
+    def capture_voxels(self, field, samples):
         self.draw_voxels = True
 
         values_in_set = field > 0.6
 
-        samples_imaginary = self.samples * 1j
+        samples_imaginary = samples * 1j
         x_values, y_values, z_values = np.mgrid[
             -1:1:samples_imaginary,
             -1:1:samples_imaginary,
             -1:1:samples_imaginary,
         ]
         coords_list = []
-        for i in range(self.samples):
-            for j in range(self.samples):
-                for k in range(self.samples):
+        for i in range(samples):
+            for j in range(samples):
+                for k in range(samples):
                     if values_in_set[i][j][k]:
                         x = x_values[i][j][k]
                         y = y_values[i][j][k]
@@ -148,15 +167,15 @@ class AppWindow(pyglet.window.Window):
                         coords_list.append((x, y, z))
 
         # N samples means a range of [0...N-1], so a width of N-1 units.
-        v = VoxelList(coords_list, 1 / (self.samples - 1))
+        v = VoxelList(coords_list, 1 / (samples - 1))
         return v
 
-    def capture_surface(self, field):
+    def capture_surface(self, field, samples):
         self.draw_surface = True
 
         vertices, triangles = mcubes.marching_cubes(field, 0.6)
         surface_vertexes = tuple(
-            v * 2 / (self.samples - 1) - 1 for v in concat(vertices)
+            v * 2 / (samples - 1) - 1 for v in concat(vertices)
         )
         # The indices appear to be ints, but when I pass them in and they have
         # math done on them [adding to another int], they turn into floats,
@@ -362,5 +381,7 @@ class Ball(Shape):
 
 
 if __name__ == "__main__":
+    print("cpu count ps", psutil.cpu_count())
+    print("cpu count ps !l", psutil.cpu_count(logical=False))
     window = AppWindow()
     pyglet.app.run()
