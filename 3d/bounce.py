@@ -122,7 +122,7 @@ class AppWindow(pyglet.window.Window):
                 output[i] = future.result()
 
         end_time = time.time()
-        print("field", end_time - start_time)
+        print("field took", end_time - start_time)
 
         return np.array(output)
 
@@ -208,12 +208,6 @@ class AppWindow(pyglet.window.Window):
     def update(self, delta_t):
         for shape in self.shapes:
             shape.update(delta_t / EXPECTED_FRAME_RATE)
-
-    def field_strength(self, coords):
-        strength = 0
-        for ball in self.balls:
-            strength += ball.field_strength(coords)
-        return strength
 
 
 class Shape:
@@ -362,12 +356,6 @@ class Ball(Shape):
             elif component < lower_bound:
                 self.coords[index] += 2 * (lower_bound - component)
                 self.velocity[index] = -self.velocity[index]
-
-    def field_strength(self, coords):
-        distance = np.linalg.norm(coords - self.coords)
-        if distance < self.size + EPSILON:
-            return self.charge
-        return self.charge / ((1 + 4 * (distance - self.size)) ** 3)
 
     def field_info(self):
         return BallFieldInfo(self.charge, self.size, self.coords)
