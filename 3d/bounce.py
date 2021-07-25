@@ -141,6 +141,7 @@ class AppWindow(pyglet.window.Window):
                 self.field_over_matrix(samples, max_workers)
                 end_time = time.time()
                 duration = end_time - start_time
+                print(f"It took {duration} seconds.")
                 records.append(TimingRecord(max_workers, samples, duration))
         print(records)
         return records
