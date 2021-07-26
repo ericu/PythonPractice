@@ -6,6 +6,7 @@ import concurrent.futures
 import random
 import sys
 import time
+import asyncio
 
 import numpy as np
 import mcubes  # Requires scipy as well
@@ -80,18 +81,27 @@ class AppWindow(pyglet.window.Window):
         self.surface_to_draw = None
         self.draw_voxels = False
         self.voxels_to_draw = None
-        self.samples = 100
+        self.samples = 50
         self.max_workers = psutil.cpu_count()
 
     def on_key_press(self, symbol, modifiers):
+#        loop = asyncio.get_event_loop()
         if symbol == pyglet.window.key.C:
-            field = self.field_over_matrix(self.samples, self.max_workers)
-            self.surface_to_draw = self.capture_surface(field, self.samples)
+            coroutine = self.field_over_matrix(self.samples, self.max_workers)
+            task = asyncio.ensure_future(coroutine)
+            def handler(future):
+                print('in handler')
+                self.surface_to_draw = self.capture_surface(future.result(),
+                                                            self.samples)
+
+            task.add_done_callback(handler)
         elif symbol == pyglet.window.key.V:
-            field = self.field_over_matrix(self.samples, self.max_workers)
+            field = asyncio.get_event_loop().run_until_complete(
+                self.field_over_matrix(self.samples, self.max_workers))
             self.voxels_to_draw = self.capture_voxels(field, self.samples)
         elif symbol == pyglet.window.key.B:
-            field = self.field_over_matrix(self.samples, self.max_workers)
+            field = asyncio.get_event_loop().run_until_complete(
+                self.field_over_matrix(self.samples, self.max_workers))
             self.surface_to_draw = self.capture_surface(field, self.samples)
             self.voxels_to_draw = self.capture_voxels(field, self.samples)
         elif symbol == pyglet.window.key.D:
@@ -99,12 +109,12 @@ class AppWindow(pyglet.window.Window):
         elif symbol == pyglet.window.key.E:
             self.draw_voxels = not self.draw_voxels
         elif symbol == pyglet.window.key.T:
-            self.run_speed_test()
+            asyncio.get_event_loop().run_until_complete(self.run_speed_test())
         elif symbol == pyglet.window.key.Q:
             sys.exit()
 
-    def field_over_matrix(self, samples, max_workers):
-        start_time = time.time()
+    async def field_over_matrix(self, samples, max_workers):
+        print('in field_over_matrix')
         field_info = list(
             filter(None, [shape.field_info() for shape in self.shapes])
         )
@@ -128,17 +138,19 @@ class AppWindow(pyglet.window.Window):
                 i = futures[future]
                 output[i] = future.result()
 
-        end_time = time.time()
 
+        print('out field_over_matrix')
         return np.array(output)
 
-    def run_speed_test(self):
+    # TODO: Push this off to another thread so that the UI doesn't lock up.
+    # Post the results back using loop.call_soon_threadsafe?
+    async def run_speed_test(self):
         records = []
         for max_workers in range(4, psutil.cpu_count() * 2 + 2, 2):
             for samples in [5, 15, 25, 35, 45, 55]:
                 print(f"Running {samples} samples with {max_workers} workers.")
                 start_time = time.time()
-                self.field_over_matrix(samples, max_workers)
+                await self.field_over_matrix(samples, max_workers)
                 end_time = time.time()
                 duration = end_time - start_time
                 print(f"It took {duration} seconds.")
@@ -380,9 +392,21 @@ class Ball(Shape):
     def field_info(self):
         return BallFieldInfo(self.charge, self.size, self.coords)
 
+async def main():
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        print("cpu count ps", psutil.cpu_count())
+        print("cpu count ps !l", psutil.cpu_count(logical=False))
+        window = AppWindow()
+#        pyglet.app.run()
+        while True:
+            pyglet.clock.tick()
+            for window in pyglet.app.windows:
+                window.switch_to()
+                window.dispatch_events()
+                window.dispatch_event('on_draw')
+                window.flip()
+            await asyncio.sleep(0)
 
 if __name__ == "__main__":
-    print("cpu count ps", psutil.cpu_count())
-    print("cpu count ps !l", psutil.cpu_count(logical=False))
-    window = AppWindow()
-    pyglet.app.run()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
