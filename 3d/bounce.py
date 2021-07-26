@@ -82,16 +82,15 @@ class AppWindow(pyglet.window.Window):
         self.draw_voxels = False
         self.voxels_to_draw = None
         self.samples = 30
-        # Leave 1 for the UI.  Despite shared-core hyperthreading on my laptop,
-        # this seems to be enough to minimize jank.  It doesn't eliminate it
-        # entirely, though--for that I have to limit it to roughly the number of
-        # physical cores.
-        self.max_workers = psutil.cpu_count(logical=False) - 1
+        # Leave 1 for the UI.  Hyperthreading isn't really good enough to
+        # eliminate jank--I have to leave a whole physical CPU free.
+        self.executor = concurrent.futures.ProcessPoolExecutor(
+            max_workers=psutil.cpu_count(logical=False) - 1)
 
     def on_key_press(self, symbol, modifiers):
         # TODO: Protect against reentrancy?
         def get_field_for_handler(handler):
-            coroutine = self.field_over_matrix(self.samples, self.max_workers)
+            coroutine = self.field_over_matrix(self.samples)
             task = asyncio.ensure_future(coroutine)
             task.add_done_callback(handler)
 
@@ -121,7 +120,7 @@ class AppWindow(pyglet.window.Window):
         elif symbol == pyglet.window.key.Q:
             sys.exit()
 
-    async def field_over_matrix(self, samples, max_workers):
+    async def field_over_matrix(self, samples):
         field_info = list(
             filter(None, [shape.field_info() for shape in self.shapes])
         )
@@ -134,18 +133,15 @@ class AppWindow(pyglet.window.Window):
         # we'd have to pass lots of incremental state back and forth.
         output = [None] * samples
 
-        with concurrent.futures.ProcessPoolExecutor(
-            max_workers=max_workers
-        ) as executor:
-            futures = [
-                asyncio.get_event_loop().run_in_executor(
-                  executor, get_field_for_slice, field_info, samples, i)
-                for i in range(samples)
-            ]
-            done, pending = await asyncio.wait(futures,
-                                               return_when=asyncio.FIRST_EXCEPTION)
-            for i, future in enumerate(futures):
-                output[i] = future.result()
+        futures = [
+            asyncio.get_event_loop().run_in_executor(
+              self.executor, get_field_for_slice, field_info, samples, i)
+            for i in range(samples)
+        ]
+        done, pending = await asyncio.wait(futures,
+                                           return_when=asyncio.FIRST_EXCEPTION)
+        for i, future in enumerate(futures):
+            output[i] = future.result()
 
 
         return np.array(output)
