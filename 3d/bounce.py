@@ -381,7 +381,7 @@ class Ball(Shape):
 async def main():
     # Leave 1 for the UI.  Hyperthreading isn't really good enough to
     # eliminate jank--I have to leave a whole physical CPU free.
-    max_workers = psutil.cpu_count(logical=False) - 1
+    max_workers = max(psutil.cpu_count(logical=False) - 1, 1)
     with ProcessPoolExecutor(max_workers=max_workers) as process_executor:
         window = AppWindow(process_executor)
         # We can't use pyglet's standard main loop here, as both it and asyncio
