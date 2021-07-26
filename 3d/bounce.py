@@ -81,16 +81,21 @@ class AppWindow(pyglet.window.Window):
         self.surface_to_draw = None
         self.draw_voxels = False
         self.voxels_to_draw = None
-        self.samples = 50
+        self.samples = 30
         self.max_workers = psutil.cpu_count()
 
     def on_key_press(self, symbol, modifiers):
 #        loop = asyncio.get_event_loop()
         if symbol == pyglet.window.key.C:
+            print('calling field_over_matrix')
             coroutine = self.field_over_matrix(self.samples, self.max_workers)
+            print('calling ensure_future', coroutine)
             task = asyncio.ensure_future(coroutine)
-            def handler(future):
-                print('in handler')
+            print('created task', task)
+            def handler(future): # Task, not future?
+                print('\nin handler', future)
+                print('\nexception', future.exception())
+                print('\nresult', future.result())
                 self.surface_to_draw = self.capture_surface(future.result(),
                                                             self.samples)
 
@@ -130,12 +135,20 @@ class AppWindow(pyglet.window.Window):
         with concurrent.futures.ProcessPoolExecutor(
             max_workers=max_workers
         ) as executor:
-            futures = {
-                executor.submit(get_field_for_slice, field_info, samples, i): i
+            futures = [
+                executor.submit(get_field_for_slice, field_info, samples, i)
                 for i in range(samples)
-            }
-            for future in concurrent.futures.as_completed(futures):
-                i = futures[future]
+            ]
+            print('about to do wait', futures);
+            for future in futures:
+                print(future.__class__)
+                print(asyncio.isfuture(future))
+            # ARG.  executor.submit return as concurrent.Future, not an
+            # asyncio.Future, so you can't call asyncio.wait on it.
+            done, pending = await asyncio.wait(futures,
+                                               return_when=asyncio.FIRST_EXCEPTION)
+            print('done wait', done, pending);
+            for i, future in enumerate(futures):
                 output[i] = future.result()
 
 
