@@ -5,7 +5,6 @@ from collections import namedtuple
 from concurrent.futures import ProcessPoolExecutor
 import random
 import sys
-import time
 import asyncio
 
 import numpy as np
@@ -42,7 +41,6 @@ def get_field_for_point(field_info, coords):
 
 
 def get_field_for_slice(field_info, samples, i):
-    # start_time = time.time()
     samples_imaginary = samples * 1j
     x = i * 2 / (samples - 1) - 1
     y_values, z_values = np.mgrid[
@@ -74,15 +72,13 @@ class AppWindow(pyglet.window.Window):
         super().__init__(config=config, resizable=True)
         self.balls = [Ball(0, 0, 0) for i in range(10)]
         self.shapes = [Box()] + self.balls
-        pyglet.clock.schedule_interval(
-            lambda delta_t: self.update(delta_t), EXPECTED_FRAME_RATE
-        )
         self.draw_surface = False
         self.surface_to_draw = None
         self.draw_voxels = False
         self.voxels_to_draw = None
         self.samples = 30
         self.executor = executor
+        pyglet.clock.schedule_interval(self.update, EXPECTED_FRAME_RATE)
 
     def on_key_press(self, symbol, modifiers):
         def get_field_for_handler(handler):
@@ -129,12 +125,12 @@ class AppWindow(pyglet.window.Window):
             filter(None, [shape.field_info() for shape in self.shapes])
         )
 
-        # Another approach to optimization is to try to reduce the number of
-        # points that need calculation.  We could start with anything within
+        # Another approach to optimization would be to try to reduce the number
+        # of points that need calculation.  We could start with anything within
         # some distance of a ball, and then look at all uncomputed neighbors of
         # points with values above the cutoff, repeating until there are none
-        # left uncomputed.  That approach likely wouldn't parallelize well, as
-        # we'd have to pass lots of incremental state back and forth.
+        # left uncomputed.  However, that approach likely wouldn't parallelize
+        # well, as we'd have to pass lots of incremental state back and forth.
         output = [None] * samples
 
         futures = [
@@ -143,9 +139,7 @@ class AppWindow(pyglet.window.Window):
             )
             for i in range(samples)
         ]
-        done, pending = await asyncio.wait(
-            futures, return_when=asyncio.FIRST_EXCEPTION
-        )
+        await asyncio.wait(futures, return_when=asyncio.FIRST_EXCEPTION)
         for i, future in enumerate(futures):
             output[i] = future.result()
 
@@ -183,11 +177,11 @@ class AppWindow(pyglet.window.Window):
         surface_vertexes = tuple(
             v * 2 / (samples - 1) - 1 for v in concat(vertices)
         )
-        # The indices appear to be ints, but when I pass them in and they have
-        # math done on them [adding to another int], they turn into floats,
-        # which causes something expecting ints to blow up.  This explicit cast
-        # fixes that.
         surface_vertex_count = len(surface_vertexes) // 3
+        # The indices appear to be ints, but when I pass them to add_indexed and
+        # they have math done on them [adding to another int], they turn into
+        # floats, which causes something expecting ints to blow up.  This
+        # explicit cast fixes that.
         surface_indices = tuple(map(int, concat(triangles)))
         surface_colors = tuple(surface_vertex_count * [64, 64, 192, 128])
         batch = pyglet.graphics.Batch()
@@ -212,8 +206,6 @@ class AppWindow(pyglet.window.Window):
         gl.glMatrixMode(gl.GL_MODELVIEW)
         gl.glLoadIdentity()
         gl.glTranslatef(0, 0, -2)
-        # Angle, axis
-        #      gl.glRotatef(45, 0, 1, 0)
 
         gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
         gl.glEnable(gl.GL_BLEND)
