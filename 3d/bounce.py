@@ -136,7 +136,8 @@ class AppWindow(pyglet.window.Window):
             max_workers=max_workers
         ) as executor:
             futures = [
-                executor.submit(get_field_for_slice, field_info, samples, i)
+                asyncio.get_event_loop().run_in_executor(
+                  executor, get_field_for_slice, field_info, samples, i)
                 for i in range(samples)
             ]
             print('about to do wait', futures);
