@@ -82,33 +82,36 @@ class AppWindow(pyglet.window.Window):
         self.draw_voxels = False
         self.voxels_to_draw = None
         self.samples = 30
-        self.max_workers = psutil.cpu_count()
+        # Leave 1 for the UI.  Despite shared-core hyperthreading on my laptop,
+        # this seems to be enough to minimize jank.  It doesn't eliminate it
+        # entirely, though--for that I have to limit it to roughly the number of
+        # physical cores.
+        self.max_workers = psutil.cpu_count(logical=False) - 1
 
     def on_key_press(self, symbol, modifiers):
-#        loop = asyncio.get_event_loop()
-        if symbol == pyglet.window.key.C:
-            print('calling field_over_matrix')
+        # TODO: Protect against reentrancy?
+        def get_field_for_handler(handler):
             coroutine = self.field_over_matrix(self.samples, self.max_workers)
-            print('calling ensure_future', coroutine)
             task = asyncio.ensure_future(coroutine)
-            print('created task', task)
-            def handler(future): # Task, not future?
-                print('\nin handler', future)
-                print('\nexception', future.exception())
-                print('\nresult', future.result())
+            task.add_done_callback(handler)
+
+        if symbol == pyglet.window.key.C:
+            def handler(future):
                 self.surface_to_draw = self.capture_surface(future.result(),
                                                             self.samples)
-
-            task.add_done_callback(handler)
+            get_field_for_handler(handler)
         elif symbol == pyglet.window.key.V:
-            field = asyncio.get_event_loop().run_until_complete(
-                self.field_over_matrix(self.samples, self.max_workers))
-            self.voxels_to_draw = self.capture_voxels(field, self.samples)
+            def handler(future):
+                self.voxels_to_draw = self.capture_voxels(future.result(),
+                                                          self.samples)
+            get_field_for_handler(handler)
         elif symbol == pyglet.window.key.B:
-            field = asyncio.get_event_loop().run_until_complete(
-                self.field_over_matrix(self.samples, self.max_workers))
-            self.surface_to_draw = self.capture_surface(field, self.samples)
-            self.voxels_to_draw = self.capture_voxels(field, self.samples)
+            def handler(future):
+                self.surface_to_draw = self.capture_surface(future.result(),
+                                                            self.samples)
+                self.voxels_to_draw = self.capture_voxels(future.result(),
+                                                          self.samples)
+            get_field_for_handler(handler)
         elif symbol == pyglet.window.key.D:
             self.draw_surface = not self.draw_surface
         elif symbol == pyglet.window.key.E:
@@ -119,7 +122,6 @@ class AppWindow(pyglet.window.Window):
             sys.exit()
 
     async def field_over_matrix(self, samples, max_workers):
-        print('in field_over_matrix')
         field_info = list(
             filter(None, [shape.field_info() for shape in self.shapes])
         )
@@ -140,20 +142,12 @@ class AppWindow(pyglet.window.Window):
                   executor, get_field_for_slice, field_info, samples, i)
                 for i in range(samples)
             ]
-            print('about to do wait', futures);
-            for future in futures:
-                print(future.__class__)
-                print(asyncio.isfuture(future))
-            # ARG.  executor.submit return as concurrent.Future, not an
-            # asyncio.Future, so you can't call asyncio.wait on it.
             done, pending = await asyncio.wait(futures,
                                                return_when=asyncio.FIRST_EXCEPTION)
-            print('done wait', done, pending);
             for i, future in enumerate(futures):
                 output[i] = future.result()
 
 
-        print('out field_over_matrix')
         return np.array(output)
 
     # TODO: Push this off to another thread so that the UI doesn't lock up.
