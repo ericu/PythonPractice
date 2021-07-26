@@ -2,7 +2,7 @@
 
 from itertools import chain
 from collections import namedtuple
-import concurrent.futures
+from concurrent.futures import ProcessPoolExecutor
 import random
 import sys
 import time
@@ -60,7 +60,7 @@ def get_field_for_slice(field_info, samples, i):
 
 # pylint: disable=abstract-method
 class AppWindow(pyglet.window.Window):
-    def __init__(self):
+    def __init__(self, executor):
         display = pyglet.canvas.get_display()
         screen = display.get_default_screen()
         template = gl.Config(
@@ -82,41 +82,45 @@ class AppWindow(pyglet.window.Window):
         self.draw_voxels = False
         self.voxels_to_draw = None
         self.samples = 30
-        # Leave 1 for the UI.  Hyperthreading isn't really good enough to
-        # eliminate jank--I have to leave a whole physical CPU free.
-        self.executor = concurrent.futures.ProcessPoolExecutor(
-            max_workers=psutil.cpu_count(logical=False) - 1)
+        self.executor = executor
 
     def on_key_press(self, symbol, modifiers):
-        # TODO: Protect against reentrancy?
         def get_field_for_handler(handler):
             coroutine = self.field_over_matrix(self.samples)
             task = asyncio.ensure_future(coroutine)
             task.add_done_callback(handler)
 
         if symbol == pyglet.window.key.C:
+
             def handler(future):
-                self.surface_to_draw = self.capture_surface(future.result(),
-                                                            self.samples)
+                self.surface_to_draw = self.capture_surface(
+                    future.result(), self.samples
+                )
+
             get_field_for_handler(handler)
         elif symbol == pyglet.window.key.V:
+
             def handler(future):
-                self.voxels_to_draw = self.capture_voxels(future.result(),
-                                                          self.samples)
+                self.voxels_to_draw = self.capture_voxels(
+                    future.result(), self.samples
+                )
+
             get_field_for_handler(handler)
         elif symbol == pyglet.window.key.B:
+
             def handler(future):
-                self.surface_to_draw = self.capture_surface(future.result(),
-                                                            self.samples)
-                self.voxels_to_draw = self.capture_voxels(future.result(),
-                                                          self.samples)
+                self.surface_to_draw = self.capture_surface(
+                    future.result(), self.samples
+                )
+                self.voxels_to_draw = self.capture_voxels(
+                    future.result(), self.samples
+                )
+
             get_field_for_handler(handler)
         elif symbol == pyglet.window.key.D:
             self.draw_surface = not self.draw_surface
         elif symbol == pyglet.window.key.E:
             self.draw_voxels = not self.draw_voxels
-        elif symbol == pyglet.window.key.T:
-            asyncio.get_event_loop().run_until_complete(self.run_speed_test())
         elif symbol == pyglet.window.key.Q:
             sys.exit()
 
@@ -135,32 +139,17 @@ class AppWindow(pyglet.window.Window):
 
         futures = [
             asyncio.get_event_loop().run_in_executor(
-              self.executor, get_field_for_slice, field_info, samples, i)
+                self.executor, get_field_for_slice, field_info, samples, i
+            )
             for i in range(samples)
         ]
-        done, pending = await asyncio.wait(futures,
-                                           return_when=asyncio.FIRST_EXCEPTION)
+        done, pending = await asyncio.wait(
+            futures, return_when=asyncio.FIRST_EXCEPTION
+        )
         for i, future in enumerate(futures):
             output[i] = future.result()
 
-
         return np.array(output)
-
-    # TODO: Push this off to another thread so that the UI doesn't lock up.
-    # Post the results back using loop.call_soon_threadsafe?
-    async def run_speed_test(self):
-        records = []
-        for max_workers in range(4, psutil.cpu_count() * 2 + 2, 2):
-            for samples in [5, 15, 25, 35, 45, 55]:
-                print(f"Running {samples} samples with {max_workers} workers.")
-                start_time = time.time()
-                await self.field_over_matrix(samples, max_workers)
-                end_time = time.time()
-                duration = end_time - start_time
-                print(f"It took {duration} seconds.")
-                records.append(TimingRecord(max_workers, samples, duration))
-        print(records)
-        return records
 
     def capture_voxels(self, field, samples):
         self.draw_voxels = True
@@ -396,20 +385,26 @@ class Ball(Shape):
     def field_info(self):
         return BallFieldInfo(self.charge, self.size, self.coords)
 
+
 async def main():
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        print("cpu count ps", psutil.cpu_count())
-        print("cpu count ps !l", psutil.cpu_count(logical=False))
-        window = AppWindow()
-#        pyglet.app.run()
+    # Leave 1 for the UI.  Hyperthreading isn't really good enough to
+    # eliminate jank--I have to leave a whole physical CPU free.
+    max_workers = psutil.cpu_count(logical=False) - 1
+    with ProcessPoolExecutor(max_workers=max_workers) as process_executor:
+        window = AppWindow(process_executor)
+        # We can't use pyglet's standard main loop here, as both it and asyncio
+        # want to own the event loop.  This replaces the pyglet main loop with
+        # one that does asyncio.sleep to yield to other asyncio threads, instead
+        # of whatever pyglet would normally do, which doesn't yield to asyncio.
         while True:
             pyglet.clock.tick()
             for window in pyglet.app.windows:
                 window.switch_to()
                 window.dispatch_events()
-                window.dispatch_event('on_draw')
+                window.dispatch_event("on_draw")
                 window.flip()
             await asyncio.sleep(0)
+
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
