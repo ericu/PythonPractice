@@ -3,6 +3,8 @@
 from itertools import chain
 from collections import namedtuple
 from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
+import queue
 import random
 import sys
 import asyncio
@@ -40,7 +42,7 @@ def get_field_for_point(field_info, coords):
     return strength
 
 
-def get_field_for_slice(field_info, samples, i):
+def get_field_for_slice(field_info, samples, progress_queue, i):
     samples_imaginary = samples * 1j
     x = i * 2 / (samples - 1) - 1
     y_values, z_values = np.mgrid[
@@ -53,6 +55,7 @@ def get_field_for_slice(field_info, samples, i):
             y = y_values[j][k]
             z = z_values[j][k]
             output[j][k] = get_field_for_point(field_info, np.array([x, y, z]))
+    progress_queue.put(i)
     return output
 
 
@@ -78,39 +81,42 @@ class AppWindow(pyglet.window.Window):
         self.voxels_to_draw = None
         self.samples = 30
         self.executor = executor
+        manager = multiprocessing.Manager()
+        # Queue space is cheap, so give it space for all it'll ever hold.
+        self.progress_queue = manager.Queue(self.samples)
+        self.progress_count = 0
+        self.job_in_progress = False
         pyglet.clock.schedule_interval(self.update, EXPECTED_FRAME_RATE)
 
     def on_key_press(self, symbol, modifiers):
         def get_field_for_handler(handler):
-            coroutine = self.field_over_matrix(self.samples)
+            def wrapped_hander(arg):
+                self.job_in_progress = False
+                self.progress_count = 0
+                handler(arg)
+
+            self.job_in_progress = True
+            coroutine = self.field_over_matrix()
             task = asyncio.ensure_future(coroutine)
-            task.add_done_callback(handler)
+            task.add_done_callback(wrapped_hander)
 
-        if symbol == pyglet.window.key.C:
+        if symbol == pyglet.window.key.C and not self.job_in_progress:
 
             def handler(future):
-                self.surface_to_draw = self.capture_surface(
-                    future.result(), self.samples
-                )
+                self.surface_to_draw = self.capture_surface(future.result())
 
             get_field_for_handler(handler)
-        elif symbol == pyglet.window.key.V:
+        elif symbol == pyglet.window.key.V and not self.job_in_progress:
 
             def handler(future):
-                self.voxels_to_draw = self.capture_voxels(
-                    future.result(), self.samples
-                )
+                self.voxels_to_draw = self.capture_voxels(future.result())
 
             get_field_for_handler(handler)
-        elif symbol == pyglet.window.key.B:
+        elif symbol == pyglet.window.key.B and not self.job_in_progress:
 
             def handler(future):
-                self.surface_to_draw = self.capture_surface(
-                    future.result(), self.samples
-                )
-                self.voxels_to_draw = self.capture_voxels(
-                    future.result(), self.samples
-                )
+                self.surface_to_draw = self.capture_surface(future.result())
+                self.voxels_to_draw = self.capture_voxels(future.result())
 
             get_field_for_handler(handler)
         elif symbol == pyglet.window.key.D:
@@ -120,7 +126,7 @@ class AppWindow(pyglet.window.Window):
         elif symbol == pyglet.window.key.Q:
             sys.exit()
 
-    async def field_over_matrix(self, samples):
+    async def field_over_matrix(self):
         field_info = list(
             filter(None, [shape.field_info() for shape in self.shapes])
         )
@@ -131,13 +137,18 @@ class AppWindow(pyglet.window.Window):
         # points with values above the cutoff, repeating until there are none
         # left uncomputed.  However, that approach likely wouldn't parallelize
         # well, as we'd have to pass lots of incremental state back and forth.
-        output = [None] * samples
+        output = [None] * self.samples
 
         futures = [
             asyncio.get_event_loop().run_in_executor(
-                self.executor, get_field_for_slice, field_info, samples, i
+                self.executor,
+                get_field_for_slice,
+                field_info,
+                self.samples,
+                self.progress_queue,
+                i,
             )
-            for i in range(samples)
+            for i in range(self.samples)
         ]
         await asyncio.wait(futures, return_when=asyncio.FIRST_EXCEPTION)
         for i, future in enumerate(futures):
@@ -145,21 +156,21 @@ class AppWindow(pyglet.window.Window):
 
         return np.array(output)
 
-    def capture_voxels(self, field, samples):
+    def capture_voxels(self, field):
         self.draw_voxels = True
 
         values_in_set = field > 0.6
 
-        samples_imaginary = samples * 1j
+        samples_imaginary = self.samples * 1j
         x_values, y_values, z_values = np.mgrid[
             -1:1:samples_imaginary,
             -1:1:samples_imaginary,
             -1:1:samples_imaginary,
         ]
         coords_list = []
-        for i in range(samples):
-            for j in range(samples):
-                for k in range(samples):
+        for i in range(self.samples):
+            for j in range(self.samples):
+                for k in range(self.samples):
                     if values_in_set[i][j][k]:
                         x = x_values[i][j][k]
                         y = y_values[i][j][k]
@@ -167,15 +178,15 @@ class AppWindow(pyglet.window.Window):
                         coords_list.append((x, y, z))
 
         # N samples means a range of [0...N-1], so a width of N-1 units.
-        v = VoxelList(coords_list, 1 / (samples - 1))
+        v = VoxelList(coords_list, 1 / (self.samples - 1))
         return v
 
-    def capture_surface(self, field, samples):
+    def capture_surface(self, field):
         self.draw_surface = True
 
         vertices, triangles = mcubes.marching_cubes(field, 0.6)
         surface_vertexes = tuple(
-            v * 2 / (samples - 1) - 1 for v in concat(vertices)
+            v * 2 / (self.samples - 1) - 1 for v in concat(vertices)
         )
         surface_vertex_count = len(surface_vertexes) // 3
         # The indices appear to be ints, but when I pass them to add_indexed and
@@ -194,6 +205,43 @@ class AppWindow(pyglet.window.Window):
             ("c4B", surface_colors),
         )
         return batch
+
+    def draw_progress_bar(self):
+        try:
+            while True:
+                self.progress_queue.get_nowait()
+                # We can get these late; clear the queue anyway.
+                if self.job_in_progress:
+                    self.progress_count += 1
+        except queue.Empty:
+            pass
+        if self.progress_count:
+            progress_fraction = self.progress_count / self.samples
+            gl.glMatrixMode(gl.GL_PROJECTION)
+            gl.glLoadIdentity()
+            gl.gluOrtho2D(0, 1, 0, 1)
+            gl.glMatrixMode(gl.GL_MODELVIEW)
+            gl.glLoadIdentity()
+            # fmt: off
+            progress_height = 0.04
+            vertices = (
+                0, 0,
+                progress_fraction, 0,
+                progress_fraction, progress_height,
+                0, progress_height
+            )
+            indices = (
+                0, 1, 2, 3
+            )
+            # fmt: on
+            gl.glDisable(gl.GL_DEPTH_TEST)
+            pyglet.graphics.draw_indexed(
+                len(vertices) // 2,
+                gl.GL_QUADS,
+                indices,
+                ("v2f", vertices),
+                ("c3B", 4 * (255, 64, 64)),
+            )
 
     def on_draw(self):
 
@@ -217,6 +265,7 @@ class AppWindow(pyglet.window.Window):
             self.surface_to_draw.draw()
         if self.draw_voxels and self.voxels_to_draw:
             self.voxels_to_draw.draw()
+        self.draw_progress_bar()
 
     def on_resize(self, width, height):
         gl.glViewport(0, 0, width, height)
@@ -382,6 +431,9 @@ async def main():
     # Leave 1 for the UI.  Hyperthreading isn't really good enough to
     # eliminate jank--I have to leave a whole physical CPU free.
     max_workers = max(psutil.cpu_count(logical=False) - 1, 1)
+    # Note that using the context manager here may not be ideal style; we could
+    # theoretically hold on to the executor reference in the AppWindow beyond
+    # the life of the context.
     with ProcessPoolExecutor(max_workers=max_workers) as process_executor:
         window = AppWindow(process_executor)
         # We can't use pyglet's standard main loop here, as both it and asyncio
