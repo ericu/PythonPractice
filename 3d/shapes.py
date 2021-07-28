@@ -1,5 +1,8 @@
+#!/usr/bin/env python3
 import numpy as np
 
+# Note that this file is a very-direct port of some old WebGL code of mine; some
+# JS-specific hacks may not be necessary in python.
 
 def make_tetrahedron_geometry():
     """This tetrahedron is centered at the origin, and its points are on the
