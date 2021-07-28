@@ -2,10 +2,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Sieve code adapted from
-# https://code.activestate.com/recipes/117119-sieve-of-eratosthenes/ which is
-# licensed under the PSF license.
+
 def sieve(up_to):
+    """Sieve code adapted from
+    https://code.activestate.com/recipes/117119-sieve-of-eratosthenes/ which is
+    available under the PSF license.
+    """
     composites = {}
     cur = 2
     primes = []
@@ -45,7 +47,6 @@ def spiral_out(square_size):
     for edge_size in range(1, square_size + 1):
         for _ in ["lowercase", "uppercase"]:
             for _ in range(edge_size):
-                print(coords)
                 yield np.copy(coords)
                 coords += vector
             if edge_size == square_size:
@@ -64,31 +65,19 @@ def map_primes(square_size):
             display[tuple(coords)] = 1
     return display
 
-def plot_primes(square_size):
-    """ Adapted from https://matplotlib.org/stable/gallery/mplot3d/3d_bars.html;
-    see https://github.com/matplotlib/matplotlib/blob/master/LICENSE/LICENSE.
-    """
-    fig = plt.figure(figsize=(6, 6))
-    plot = fig.add_subplot(111, projection='3d')
 
-    _x = np.arange(square_size)
-    _y = np.arange(square_size)
-    _xx, _yy = np.meshgrid(_x, _y)
-    x, y = _xx.ravel(), _yy.ravel()
+def plot_primes(square_size):
+    _, ax = plt.subplots()
 
     primes = map_primes(square_size)
-    top = primes.ravel()
-    bottom = np.zeros_like(top)
-    width = depth = 1
-
-    plot.bar3d(x, y, bottom, width, depth, top, shade=True)
-    plot.set_title('Prime spiral')
-
+    ax.imshow(primes)
+    ax.set_title("Spiral of prime numbers")
+    ax.axis("off")
     plt.show()
 
 
 def map_coords(square_size):
-    """ This is test code to display the spiral path. """
+    """This is test code to display the spiral path."""
     count = square_size * square_size
     display = np.zeros([square_size, square_size])
     generator = spiral_out(square_size)
@@ -97,5 +86,6 @@ def map_coords(square_size):
         display[tuple(coords)] = i
     return display
 
+
 if __name__ == "__main__":
-    print(map_coords(3))
+    plot_primes(100)
