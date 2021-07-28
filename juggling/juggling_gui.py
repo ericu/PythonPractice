@@ -302,7 +302,7 @@ class RunningAnimation:
             self.draw(d_t)
 
     def request_redraw(self):
-        self.root.after(int(1000 / FRAMES_PER_SECOND), lambda: self.redraw())
+        self.root.after(int(1000 / FRAMES_PER_SECOND), self.redraw)
 
     def draw(self, at_time):
         for hand in range(self.animation.num_hands()):
