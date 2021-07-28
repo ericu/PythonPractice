@@ -1,5 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import numpy as np
+import matplotlib.pyplot as plt
 
 # ..................................................
 # ..................................................
@@ -74,9 +75,37 @@ def map_primes(square_size):
     for i in range(2, count):
         coords = next(generator)
         if i in primes:
-            display[tuple(coords)] = i
+            display[tuple(coords)] = 1
     return display
+
+def plot_primes(square_size):
+    # setup the figure and axes
+    fig = plt.figure(figsize=(6, 6))
+    ax1 = fig.add_subplot(111, projection='3d')
+
+    # fake data
+    _x = np.arange(square_size)
+    _y = np.arange(square_size)
+    _xx, _yy = np.meshgrid(_x, _y)
+    x, y = _xx.ravel(), _yy.ravel()
+
+    primes = map_primes(square_size)
+    top = primes.ravel()
+    bottom = np.zeros_like(top)
+    width = depth = 1
+
+    print('x', x)
+    print('y', y)
+    print('bottom', bottom)
+    print('width', width)
+    print('depth', depth)
+    print('top', top)
+    print('primes', primes)
+    ax1.bar3d(x, y, bottom, width, depth, top, shade=True)
+    ax1.set_title('Shaded')
+
+    plt.show()
 
 
 if __name__ == "__main__":
-    print(map_primes(4))
+    plot_primes(40)
