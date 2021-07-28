@@ -67,12 +67,13 @@ def map_primes(square_size):
 
 
 def plot_primes(square_size):
-    _, ax = plt.subplots()
+    fig, ax = plt.subplots()
 
     primes = map_primes(square_size)
     ax.imshow(primes)
-    ax.set_title("Spiral of prime numbers")
+    ax.set_title("Primes are marked in yellow.")
     ax.axis("off")
+    fig.canvas.set_window_title('Ulam Spiral')
     plt.show()
 
 
