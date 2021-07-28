@@ -2,34 +2,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# ..................................................
-# ..................................................
-# ..................................................
-# ..................................................
-# ..................................................
-# ..................................................
-# ..................................................
-# ..................................................
-# ..................................................
-# .....................54444........................
-# .....................53224........................
-# .....................53124........................
-# .....................53124........................
-# .....................53334........................
-# .....................55555........................
-# ..................................................
-# ..................................................
-# ..............................544446..............
-# ..............................532246..............
-# ..............................531246..............
-# ..............................531246..............
-# ..............................533346..............
-# ..............................555556..............
-# ..................................................
-# ..................................................
-# ..................................................
-# ..................................................
-
 # Sieve code adapted from
 # https://code.activestate.com/recipes/117119-sieve-of-eratosthenes/ which is
 # licensed under the PSF license.
@@ -50,16 +22,30 @@ def sieve(up_to):
 
 
 def spiral_out(square_size):
-    """This generates a list of coordinates spiraling outward,
-    counterclockwise, from the center of a square.  It terminates when it's
-    covered the whole square."""
-    halfway = (square_size + 1) // 2 - 1
-    coords = np.array([halfway, halfway])
-    vector = np.array([1, 0])
-    rotate = np.array([[0, -1], [1, 0]])
+    """This generates a list of coordinates spiraling outward, clockwise, from
+    the center of a square.  It terminates when it's covered the whole square.
+
+    In the pattern below, each character is one such coordinate pair, working
+    outward from 'a'.
+    The capitalization change represents the second loop level, and the letter
+    increment represents the loop over edge_size.  Note that the traced shape is
+    square only after the "lowercase" letter sequence, before incrementing to
+    "uppercase"; that's why we return out of the innermost loop.
+
+        dddd
+        CbbB
+        CAaB
+        Cccc
+    """
+
+    center = square_size // 2
+    coords = np.array([center, center])
+    vector = np.array([0, -1])
+    rotate = np.array([[0, 1], [-1, 0]])
     for edge_size in range(1, square_size + 1):
-        for _ in [0, 1]:
+        for _ in ["lowercase", "uppercase"]:
             for _ in range(edge_size):
+                print(coords)
                 yield np.copy(coords)
                 coords += vector
             if edge_size == square_size:
@@ -79,11 +65,12 @@ def map_primes(square_size):
     return display
 
 def plot_primes(square_size):
-    # setup the figure and axes
+    """ Adapted from https://matplotlib.org/stable/gallery/mplot3d/3d_bars.html;
+    see https://github.com/matplotlib/matplotlib/blob/master/LICENSE/LICENSE.
+    """
     fig = plt.figure(figsize=(6, 6))
-    ax1 = fig.add_subplot(111, projection='3d')
+    plot = fig.add_subplot(111, projection='3d')
 
-    # fake data
     _x = np.arange(square_size)
     _y = np.arange(square_size)
     _xx, _yy = np.meshgrid(_x, _y)
@@ -94,18 +81,21 @@ def plot_primes(square_size):
     bottom = np.zeros_like(top)
     width = depth = 1
 
-    print('x', x)
-    print('y', y)
-    print('bottom', bottom)
-    print('width', width)
-    print('depth', depth)
-    print('top', top)
-    print('primes', primes)
-    ax1.bar3d(x, y, bottom, width, depth, top, shade=True)
-    ax1.set_title('Shaded')
+    plot.bar3d(x, y, bottom, width, depth, top, shade=True)
+    plot.set_title('Prime spiral')
 
     plt.show()
 
 
+def map_coords(square_size):
+    """ This is test code to display the spiral path. """
+    count = square_size * square_size
+    display = np.zeros([square_size, square_size])
+    generator = spiral_out(square_size)
+    for i in range(count):
+        coords = next(generator)
+        display[tuple(coords)] = i
+    return display
+
 if __name__ == "__main__":
-    plot_primes(40)
+    print(map_coords(3))
