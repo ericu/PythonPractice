@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import numpy as np
 
-# Note that this file is a very-direct port of some old WebGL code of mine; some
-# JS-specific hacks may not be necessary in python.
+# Note that this file is a very-direct port of some old WebGL code of mine; it
+# may still look a little JavaScripty.
+
 
 def make_tetrahedron_geometry():
     """This tetrahedron is centered at the origin, and its points are on the
@@ -31,6 +32,11 @@ def make_tetrahedron_geometry():
 
 
 def make_sphere_geometry(n):
+    """
+    Starting with a tetrahedron, repeat n times:
+    * Split each face into 4 triangles.
+    * Push the new points out to the unit sphere.
+    """
     assert n >= 0
     midpoints = {}
     shape = make_tetrahedron_geometry()
@@ -39,25 +45,21 @@ def make_sphere_geometry(n):
     for _ in range(n):
         new_faces = []
         # Split each face into 4.
-        for f in range(0, len(faces), 3):
-            pi0 = faces[f]
-            pi1 = faces[f + 1]
-            pi2 = faces[f + 2]
+        for face in range(0, len(faces), 3):
+            pi0 = faces[face]
+            pi1 = faces[face + 1]
+            pi2 = faces[face + 2]
             pi01 = get_midpoint(pi0, pi1, points, midpoints)
             pi12 = get_midpoint(pi1, pi2, points, midpoints)
             pi02 = get_midpoint(pi0, pi2, points, midpoints)
-            new_faces.append(pi0)
-            new_faces.append(pi01)
-            new_faces.append(pi02)
-            new_faces.append(pi01)
-            new_faces.append(pi1)
-            new_faces.append(pi12)
-            new_faces.append(pi12)
-            new_faces.append(pi2)
-            new_faces.append(pi02)
-            new_faces.append(pi01)
-            new_faces.append(pi12)
-            new_faces.append(pi02)
+            # fmt: off
+            new_faces.extend([
+                pi0, pi01, pi02,
+                pi01, pi1, pi12,
+                pi12, pi2, pi02,
+                pi01, pi12, pi02
+            ])
+            # fmt: on
         faces = new_faces
     return {
         "points": points,
@@ -67,37 +69,35 @@ def make_sphere_geometry(n):
     }
 
 
-def get_midpoint_string(a, b):
-    c = a
-    d = b
-    if a < b:
-        c = b
-        d = a
-    return f'M{c}":"{d}'
-
-
 def get_midpoint(pi0, pi1, points, midpoints):
     """This is the great-circle midpoint of two points on the unit sphere.
     It'll fail if they're diametrically opposed."""
-    s = get_midpoint_string(pi0, pi1)
+
+    def get_midpoint_key(a, b):
+        c = a
+        d = b
+        if a < b:
+            c = b
+            d = a
+        return (c, d)
+
+    def normalize(v):
+        norm = np.linalg.norm(v)
+        if norm < 0.0001:
+            return v
+        return v / norm
+
+    s = get_midpoint_key(pi0, pi1)
     if s in midpoints:
         return midpoints[s]
-    p0 = points[pi0]
-    p1 = points[pi1]
-    # This normalization projects the point to the surface of the unit
-    # sphere.
-    temp = _normalize(p0 + p1)
+    p_0 = points[pi0]
+    p_1 = points[pi1]
+    # Normalization projects the point to the surface of the unit sphere.
+    temp = normalize(p_0 + p_1)
     index = len(points)
     points.append(temp)
     midpoints[s] = index
     return index
-
-
-def _normalize(v):
-    norm = np.linalg.norm(v)
-    if norm < 0.0001:
-        return v
-    return v / norm
 
 
 def make_simple_colors(points):
