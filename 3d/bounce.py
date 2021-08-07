@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 
 from itertools import chain
-from collections import namedtuple
 from concurrent.futures import ProcessPoolExecutor
+from typing import NamedTuple, List, Sequence, Any, Iterator, Tuple
 import multiprocessing
 import queue
 import random
 import sys
 import asyncio
 
-import numpy as np
-import mcubes  # Requires scipy as well
-import pyglet
+import numpy as np  # type: ignore
+
+# mcubes requires scipy
+import mcubes  # type: ignore
+import pyglet  # type: ignore
 from pyglet import gl  # Requires PyOpenGL PyOpenGL_accelerate
-import psutil
+import psutil  # type: ignore
 
 import shapes
 
@@ -21,18 +23,20 @@ EPSILON = 0.001
 EXPECTED_FRAME_RATE = 1 / 65.0
 
 
-def concat(lists):
+def concat(lists: Sequence[Iterator[Any]]) -> Iterator[Any]:
     return chain.from_iterable(lists)
 
 
-BallFieldInfo = namedtuple("BallFieldInfo", ("charge", "size", "coords"))
-TimingRecord = namedtuple(
-    "TimingRecord", ("max_workers", "samples", "duration")
-)
+class BallFieldInfo(NamedTuple):
+    charge: float
+    size: float
+    coords: np.ndarray
 
 
-def get_field_for_point(field_info, coords):
-    strength = 0
+def get_field_for_point(
+    field_info: Sequence[BallFieldInfo], coords: np.ndarray
+) -> float:
+    strength = 0.0
     for shape in field_info:
         distance = np.linalg.norm(coords - shape.coords)
         if distance < shape.size + EPSILON:
@@ -42,12 +46,14 @@ def get_field_for_point(field_info, coords):
     return strength
 
 
-def get_field_for_slice(field_info, samples, progress_queue, i):
+def get_field_for_slice(
+    field_info: Sequence[BallFieldInfo], samples: int, progress_queue, i: int
+) -> float:
     samples_imaginary = samples * 1j
     x = i * 2 / (samples - 1) - 1
     y_values, z_values = np.mgrid[
-        -1:1:samples_imaginary,
-        -1:1:samples_imaginary,
+        -1:1:samples_imaginary,  # type: ignore
+        -1:1:samples_imaginary,  # type: ignore
     ]
     output = np.zeros([samples, samples])
     for j in range(samples):
@@ -59,9 +65,164 @@ def get_field_for_slice(field_info, samples, progress_queue, i):
     return output
 
 
+class Shape:
+    def draw(self):
+        raise NotImplementedError()
+
+    def update(self, frame_scaling: float):
+        pass
+
+    def field_info(self):
+        return None
+
+
+class Box(Shape):
+    def __init__(self):
+        # fmt: off
+        self.wall_coords = [
+            -1, -1, -1,
+            -1, -1,  1,
+            -1,  1, -1,
+            -1,  1,  1,
+             1, -1, -1,
+             1, -1,  1,
+             1,  1, -1,
+             1,  1,  1,
+        ]
+        self.wall_indices = [
+            0, 1, 3, 2,  # Left wall
+            4, 5, 7, 6,  # Right wall
+            2, 3, 7, 6,  # Ceiling
+            0, 1, 5, 4,  # Floor
+        ]
+        # fmt: on
+        floor_color = (64, 64, 64)
+        ceiling_color = (192, 192, 192)
+        self.wall_colors = tuple((2 * floor_color + 2 * ceiling_color) * 2)
+        self.wall_vertex_count = len(self.wall_coords) // 3
+        self.back_indices = [0, 2, 6, 4]
+        self.back_colors = tuple(8 * [32, 32, 64])
+
+    def draw(self):
+        pyglet.graphics.draw_indexed(
+            self.wall_vertex_count,
+            gl.GL_QUADS,
+            self.wall_indices,
+            ("v3f", self.wall_coords),
+            ("c3B", self.wall_colors),
+        )
+        pyglet.graphics.draw_indexed(
+            self.wall_vertex_count,
+            gl.GL_QUADS,
+            self.back_indices,
+            ("v3f", self.wall_coords),
+            ("c3B", self.back_colors),
+        )
+
+
+class VoxelList(Shape):
+    def __init__(
+        self, coords_list: Sequence[Tuple[int, int, int]], size: float
+    ):
+        self.coords_list = coords_list
+        self.size = size
+        # fmt: off
+        wall_coords_template = np.array([
+            [-1, -1, -1],
+            [-1, -1,  1],
+            [-1,  1, -1],
+            [-1,  1,  1],
+            [ 1, -1, -1],
+            [ 1, -1,  1],
+            [ 1,  1, -1],
+            [ 1,  1,  1],
+        ]) * size
+        wall_indices_template = np.array([
+            0, 1, 3, 2,  # Left wall
+            4, 5, 7, 6,  # Right wall
+            2, 3, 7, 6,  # Ceiling
+            0, 1, 5, 4,  # Floor
+            1, 3, 7, 5,  # Front
+        ])
+        wall_coords = []
+        wall_indices = []
+        num_vertices_in_template = len(wall_coords_template)
+        for (index, coords) in enumerate(coords_list):
+            wall_coords.append(concat(wall_coords_template + coords))
+            wall_indices.append(wall_indices_template +
+                                index * num_vertices_in_template)
+        self.wall_coords = tuple(concat(wall_coords))
+        self.wall_indices = tuple(concat(wall_indices))
+
+        # fmt: on
+        self.wall_vertex_count = len(self.wall_coords) // 3
+        self.wall_colors = self.wall_vertex_count * (64, 192, 64, 128)
+
+    def draw(self):
+        pyglet.graphics.draw_indexed(
+            self.wall_vertex_count,
+            gl.GL_QUADS,
+            self.wall_indices,
+            ("v3f", self.wall_coords),
+            ("c4B", self.wall_colors),
+        )
+
+
+class Ball(Shape):
+    def __init__(self, x: float, y: float, z: float):
+        # Just because we ask for a float, doesn't mean we get it.  Mypy will
+        # happily accept int as float, but numpy will blow up on it later.
+        self.coords = np.array([float(x), float(y), float(z)])
+        self.size = 0.1
+        geometry = shapes.make_sphere_geometry(4)
+        self.vertices = tuple(i for i in concat(geometry.points))
+        self.indices = tuple(geometry.faces)
+        self.colors = geometry.colors
+        # Not uniform over the sphere, but fine for this application.
+        speed = 0.5 * EXPECTED_FRAME_RATE
+
+        self.velocity = np.array(
+            [
+                random.random() * speed,
+                random.random() * speed,
+                random.random() * speed,
+            ]
+        )
+        self.charge = 1.0
+
+    def draw(self):
+        gl.glPushMatrix()
+        gl.glTranslatef(self.coords[0], self.coords[1], self.coords[2])
+        gl.glScalef(self.size, self.size, self.size)
+        pyglet.graphics.draw_indexed(
+            len(self.vertices) // 3,
+            gl.GL_TRIANGLES,
+            self.indices,
+            ("v3f", self.vertices),
+            ("c4B", self.colors),
+        )
+        gl.glPopMatrix()
+
+    def update(self, frame_scaling: float):
+        self.coords += self.velocity * frame_scaling
+        wall_buffer = 0.15
+        for (index, component) in enumerate(self.coords):
+            upper_bound = 1 - wall_buffer
+            lower_bound = -1 + wall_buffer
+            if component > upper_bound:
+                self.coords[index] += 2 * (upper_bound - component)
+                self.velocity[index] = -self.velocity[index]
+            elif component < lower_bound:
+                self.coords[index] += 2 * (lower_bound - component)
+                self.velocity[index] = -self.velocity[index]
+
+    def field_info(self) -> BallFieldInfo:
+        return BallFieldInfo(self.charge, self.size, self.coords)
+
+
 # pylint: disable=abstract-method
 class AppWindow(pyglet.window.Window):
-    def __init__(self, executor):
+    def __init__(self, executor: ProcessPoolExecutor):
         display = pyglet.canvas.get_display()
         screen = display.get_default_screen()
         template = gl.Config(
@@ -73,8 +234,11 @@ class AppWindow(pyglet.window.Window):
         )
         config = screen.get_best_config(template)
         super().__init__(config=config, resizable=True)
+        self.balls: List[Shape]
         self.balls = [Ball(0, 0, 0) for i in range(10)]
-        self.shapes = [Box()] + self.balls
+        box: List[Shape]
+        box = [Box()]
+        self.shapes = box + self.balls
         self.draw_surface = False
         self.surface_to_draw = None
         self.draw_voxels = False
@@ -127,6 +291,7 @@ class AppWindow(pyglet.window.Window):
             sys.exit()
 
     async def field_over_matrix(self):
+        field_info: Sequence[BallFieldInfo]
         field_info = list(
             filter(None, [shape.field_info() for shape in self.shapes])
         )
@@ -156,16 +321,16 @@ class AppWindow(pyglet.window.Window):
 
         return np.array(output)
 
-    def capture_voxels(self, field):
+    def capture_voxels(self, field: np.ndarray) -> VoxelList:
         self.draw_voxels = True
 
         values_in_set = field > 0.6
 
         samples_imaginary = self.samples * 1j
         x_values, y_values, z_values = np.mgrid[
-            -1:1:samples_imaginary,
-            -1:1:samples_imaginary,
-            -1:1:samples_imaginary,
+            -1:1:samples_imaginary,  # type: ignore
+            -1:1:samples_imaginary,  # type: ignore
+            -1:1:samples_imaginary,  # type: ignore
         ]
         coords_list = []
         for i in range(self.samples):
@@ -181,7 +346,7 @@ class AppWindow(pyglet.window.Window):
         v = VoxelList(coords_list, 1 / (self.samples - 1))
         return v
 
-    def capture_surface(self, field):
+    def capture_surface(self, field: float):
         self.draw_surface = True
 
         vertices, triangles = mcubes.marching_cubes(field, 0.6)
@@ -271,160 +436,9 @@ class AppWindow(pyglet.window.Window):
         gl.glViewport(0, 0, width, height)
         return pyglet.event.EVENT_HANDLED
 
-    def update(self, delta_t):
+    def update(self, delta_t: float):
         for shape in self.shapes:
             shape.update(delta_t / EXPECTED_FRAME_RATE)
-
-
-class Shape:
-    def draw(self):
-        raise NotImplementedError()
-
-    def update(self, frame_scaling):
-        pass
-
-    def field_info(self):
-        return None
-
-
-class Box(Shape):
-    def __init__(self):
-        # fmt: off
-        self.wall_coords = [
-            -1, -1, -1,
-            -1, -1,  1,
-            -1,  1, -1,
-            -1,  1,  1,
-             1, -1, -1,
-             1, -1,  1,
-             1,  1, -1,
-             1,  1,  1,
-        ]
-        self.wall_indices = [
-            0, 1, 3, 2,  # Left wall
-            4, 5, 7, 6,  # Right wall
-            2, 3, 7, 6,  # Ceiling
-            0, 1, 5, 4,  # Floor
-        ]
-        # fmt: on
-        floor_color = (64, 64, 64)
-        ceiling_color = (192, 192, 192)
-        self.wall_colors = tuple((2 * floor_color + 2 * ceiling_color) * 2)
-        self.wall_vertex_count = len(self.wall_coords) // 3
-        self.back_indices = [0, 2, 6, 4]
-        self.back_colors = tuple(8 * [32, 32, 64])
-
-    def draw(self):
-        pyglet.graphics.draw_indexed(
-            self.wall_vertex_count,
-            gl.GL_QUADS,
-            self.wall_indices,
-            ("v3f", self.wall_coords),
-            ("c3B", self.wall_colors),
-        )
-        pyglet.graphics.draw_indexed(
-            self.wall_vertex_count,
-            gl.GL_QUADS,
-            self.back_indices,
-            ("v3f", self.wall_coords),
-            ("c3B", self.back_colors),
-        )
-
-
-class VoxelList(Shape):
-    def __init__(self, coords_list, size):
-        self.coords_list = coords_list
-        self.size = size
-        # fmt: off
-        wall_coords_template = np.array([
-            [-1, -1, -1],
-            [-1, -1,  1],
-            [-1,  1, -1],
-            [-1,  1,  1],
-            [ 1, -1, -1],
-            [ 1, -1,  1],
-            [ 1,  1, -1],
-            [ 1,  1,  1],
-        ]) * size
-        wall_indices_template = np.array([
-            0, 1, 3, 2,  # Left wall
-            4, 5, 7, 6,  # Right wall
-            2, 3, 7, 6,  # Ceiling
-            0, 1, 5, 4,  # Floor
-            1, 3, 7, 5,  # Front
-        ])
-        wall_coords = []
-        wall_indices = []
-        num_vertices_in_template = len(wall_coords_template)
-        for (index, coords) in enumerate(coords_list):
-            wall_coords.append(concat(wall_coords_template + coords))
-            wall_indices.append(wall_indices_template +
-                                index * num_vertices_in_template)
-        self.wall_coords = tuple(concat(wall_coords))
-        self.wall_indices = tuple(concat(wall_indices))
-
-        # fmt: on
-        self.wall_vertex_count = len(self.wall_coords) // 3
-        self.wall_colors = self.wall_vertex_count * (64, 192, 64, 128)
-
-    def draw(self):
-        pyglet.graphics.draw_indexed(
-            self.wall_vertex_count,
-            gl.GL_QUADS,
-            self.wall_indices,
-            ("v3f", self.wall_coords),
-            ("c4B", self.wall_colors),
-        )
-
-
-class Ball(Shape):
-    def __init__(self, x, y, z):
-        self.coords = np.array([float(x), float(y), float(z)])
-        self.size = 0.1
-        geometry = shapes.make_sphere_geometry(4)
-        self.vertices = tuple(i for i in concat(geometry["points"]))
-        self.indices = tuple(geometry["faces"])
-        self.colors = geometry["colors"]
-        # Not uniform over the sphere, but fine for this application.
-        speed = 0.5 * EXPECTED_FRAME_RATE
-
-        self.velocity = np.array(
-            [
-                random.random() * speed,
-                random.random() * speed,
-                random.random() * speed,
-            ]
-        )
-        self.charge = 1.0
-
-    def draw(self):
-        gl.glPushMatrix()
-        gl.glTranslatef(self.coords[0], self.coords[1], self.coords[2])
-        gl.glScalef(self.size, self.size, self.size)
-        pyglet.graphics.draw_indexed(
-            len(self.vertices) // 3,
-            gl.GL_TRIANGLES,
-            self.indices,
-            ("v3f", self.vertices),
-            ("c4B", self.colors),
-        )
-        gl.glPopMatrix()
-
-    def update(self, frame_scaling):
-        self.coords += self.velocity * frame_scaling
-        wall_buffer = 0.15
-        for (index, component) in enumerate(self.coords):
-            upper_bound = 1 - wall_buffer
-            lower_bound = -1 + wall_buffer
-            if component > upper_bound:
-                self.coords[index] += 2 * (upper_bound - component)
-                self.velocity[index] = -self.velocity[index]
-            elif component < lower_bound:
-                self.coords[index] += 2 * (lower_bound - component)
-                self.velocity[index] = -self.velocity[index]
-
-    def field_info(self):
-        return BallFieldInfo(self.charge, self.size, self.coords)
 
 
 async def main():
