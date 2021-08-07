@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import numpy as np
-import matplotlib.pyplot as plt
+import numpy as np  # type: ignore
+import matplotlib.pyplot as plt  # type: ignore
 
 
-def sieve(up_to):
+def sieve(up_to: int):
     """Sieve code adapted from
     https://code.activestate.com/recipes/117119-sieve-of-eratosthenes/ which is
     available under the PSF license.
@@ -23,7 +23,7 @@ def sieve(up_to):
     return primes
 
 
-def spiral_out(square_size):
+def spiral_out(square_size: int):
     """This generates a list of coordinates spiraling outward, clockwise, from
     the center of a square.  It terminates when it's covered the whole square.
 
@@ -54,7 +54,7 @@ def spiral_out(square_size):
             vector = rotate.dot(vector)
 
 
-def map_primes(square_size):
+def map_primes(square_size: int):
     count = square_size * square_size
     display = np.zeros([square_size, square_size])
     primes = set(sieve(count + 2))
@@ -66,18 +66,18 @@ def map_primes(square_size):
     return display
 
 
-def plot_primes(square_size):
+def plot_primes(square_size: int):
     fig, ax = plt.subplots()
 
     primes = map_primes(square_size)
     ax.imshow(primes)
     ax.set_title("Primes are marked in yellow.")
     ax.axis("off")
-    fig.canvas.set_window_title('Ulam Spiral')
+    fig.canvas.set_window_title("Ulam Spiral")
     plt.show()
 
 
-def map_coords(square_size):
+def map_coords(square_size: int):
     """This is test code to display the spiral path."""
     count = square_size * square_size
     display = np.zeros([square_size, square_size])
