@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from collections import namedtuple
 from functools import reduce
+from typing import Sequence, NamedTuple, Generator, List, Dict
 import argparse
 import math
 import re
@@ -8,29 +8,55 @@ import sys
 import unittest
 
 from more_itertools import take
-import numpy as np
+import numpy as np  # type: ignore
 
 
 class InputError(Exception):
     pass
 
 
-Throw = namedtuple("Throw", ("index", "height"))
-
-Segment = namedtuple("Segment", ("height", "throw_hand", "catch_hand"))
-# Sequence is a list of Segments.
-Orbit = namedtuple("Orbit", ("ball_ids", "start_index", "sequence", "length"))
-Analysis = namedtuple(
-    "Analysis", ("pattern", "num_hands", "orbits", "cycle_length")
-)
+class Throw(NamedTuple):
+    idx: int
+    height: int
 
 
-def lcm(numbers):
+class Segment(NamedTuple):
+    height: int
+    throw_hand: int
+    catch_hand: int
+
+
+class Orbit(NamedTuple):
+    ball_ids: Sequence[int]
+    start_index: int
+    sequence: Sequence[Segment]
+    length: int
+
+
+class Analysis(NamedTuple):
+    pattern: List[int]
+    num_hands: int
+    orbits: Sequence[Orbit]
+    cycle_length: int
+
+
+class BoundingBox(NamedTuple):
+    minima: np.ndarray
+    maxima: np.ndarray
+
+
+def lcm(numbers: Sequence[int]) -> int:
     return reduce(lambda a, b: a * b // math.gcd(a, b), numbers)
 
 
 class Motion:
-    def __init__(self, time, duration, start_pos, end_pos):
+    def __init__(
+        self,
+        time: float,
+        duration: float,
+        start_pos: np.ndarray,
+        end_pos: np.ndarray,
+    ):
         self.time = time
         self.duration = duration
         self.end_time = time + duration
@@ -45,15 +71,15 @@ class Motion:
             + f"{self.start_pos!r},{self.end_pos!r})"
         )
 
-    def covers(self, time, cycle_length):
+    def covers(self, time: float, cycle_length: int) -> bool:
         time %= cycle_length
         time_to_check = time if time >= self.time else time + cycle_length
         return self.time <= time_to_check < self.end_time
 
-    def location_at(self, time, cycle_length):
+    def location_at(self, time: float, cycle_length: int) -> np.ndarray:
         raise NotImplementedError("Unimplemented")
 
-    def bounding_box(self):
+    def bounding_box(self) -> BoundingBox:
         raise NotImplementedError("Unimplemented")
 
 
@@ -70,7 +96,7 @@ class Arc(Motion):
             delta_y - 0.5 * self.G * self.duration * self.duration
         ) / self.duration
 
-    def location_at(self, time, cycle_length):
+    def location_at(self, time: float, cycle_length: int) -> np.ndarray:
         time %= cycle_length
         time = time if time >= self.time else time + cycle_length
         assert self.time <= time < self.end_time
@@ -80,7 +106,7 @@ class Arc(Motion):
         delta_y = self.v_i * d_t + 0.5 * self.G * d_t * d_t
         return self.start_pos + np.array([delta_x, delta_y])
 
-    def bounding_box(self):
+    def bounding_box(self) -> BoundingBox:
         # vf^2 = v_i^2 + 2 a s; peak is at vf = 0.
         # - 2 a s = v_i^2
         # s = v_i^2 / (-2 a)
@@ -88,47 +114,47 @@ class Arc(Motion):
         minima = np.minimum(self.start_pos, self.end_pos)
         maxima = np.maximum(self.start_pos, self.end_pos)
         maxima[1] = self.start_pos[1] + dy_max
-        return (minima, maxima)
+        return BoundingBox(minima, maxima)
 
 
 class HandMove(Motion):
-    def location_at(self, time, cycle_length):
+    def location_at(self, time: float, cycle_length: int) -> np.ndarray:
         time %= cycle_length
         time = time if time >= self.time else time + cycle_length
         assert self.time <= time < self.end_time
         fraction = (time - self.time) / self.duration
         return self.start_pos + fraction * self.delta
 
-    def bounding_box(self):
+    def bounding_box(self) -> BoundingBox:
         minima = np.minimum(self.start_pos, self.end_pos)
         maxima = np.maximum(self.start_pos, self.end_pos)
-        return (minima, maxima)
+        return BoundingBox(minima, maxima)
 
 
 class HandStationary(Motion):
     def __init__(self, pos):
         super().__init__(0, 0, pos, pos)
 
-    def location_at(self, time, cycle_length):
+    def location_at(self, time: float, cycle_length: int) -> np.ndarray:
         return self.start_pos
 
-    def covers(self, *_):
+    def covers(self, *_) -> bool:
         return True
 
-    def bounding_box(self):
-        return (self.start_pos, self.start_pos)
+    def bounding_box(self) -> BoundingBox:
+        return BoundingBox(self.start_pos, self.start_pos)
 
 
 # This is a hack to put in default throw/catch locations.
 R = 75
 
 
-def _simple_throw_pos(hand, num_hands):
+def _simple_throw_pos(hand: int, num_hands: int) -> np.ndarray:
     angle = hand / num_hands * 2 * math.pi
     return np.array([R * math.cos(angle), R * math.sin(angle)])
 
 
-def _simple_catch_pos(hand, num_hands):
+def _simple_catch_pos(hand: int, num_hands: int) -> np.ndarray:
     angle = hand / num_hands * 2 * math.pi
     outer_r = R * 1.5
     return np.array(
@@ -136,7 +162,9 @@ def _simple_catch_pos(hand, num_hands):
     )
 
 
-def _simple_handoff_pos(from_hand, to_hand, num_hands):
+def _simple_handoff_pos(
+    from_hand: int, to_hand: int, num_hands: int
+) -> np.ndarray:
     return 0.5 * (
         _simple_throw_pos(from_hand, num_hands)
         + _simple_throw_pos(to_hand, num_hands)
@@ -145,18 +173,23 @@ def _simple_handoff_pos(from_hand, to_hand, num_hands):
 
 class Animation:
     """The point of this object is to be able to answer the question, "Where is
-    ball/hand N at time T?"  Possibly we'll move this all to the SiteSwap
-    constructor, but maybe not."""
+    ball/hand N at time T?"  This could potentially be moved to the SiteSwap
+    constructor."""
 
-    def __init__(self, ball_paths, hand_paths, cycle_length):
+    def __init__(
+        self,
+        ball_paths: Dict[int, List[Motion]],
+        hand_paths: Dict[int, List[Motion]],
+        cycle_length: int,
+    ):
         self.ball_paths = ball_paths
         self.hand_paths = hand_paths
         self.cycle_length = cycle_length
 
-    def num_balls(self):
+    def num_balls(self) -> int:
         return len(self.ball_paths.keys())
 
-    def num_hands(self):
+    def num_hands(self) -> int:
         return len(self.hand_paths.keys())
 
     def __repr__(self):
@@ -165,21 +198,21 @@ class Animation:
             + f"{self.cycle_length!r})"
         )
 
-    def hand_location_at(self, hand, time):
+    def hand_location_at(self, hand: int, time: float) -> np.ndarray:
         for move in self.hand_paths[hand]:
             if move.covers(time, self.cycle_length):
                 return move.location_at(time, self.cycle_length)
         assert False, "Any time should have a hand location."
         return np.zeroes(2)
 
-    def ball_location_at(self, ball, time):
+    def ball_location_at(self, ball: int, time: float) -> np.ndarray:
         for move in self.ball_paths[ball]:
             if move.covers(time, self.cycle_length):
                 return move.location_at(time, self.cycle_length)
         assert False, "Any time should have a ball location."
         return np.zeroes(2)
 
-    def bounding_box(self):
+    def bounding_box(self) -> BoundingBox:
         def merge_boxes(b_0, b_1):
             min_0, max_0 = b_0
             min_1, max_1 = b_1
@@ -197,7 +230,7 @@ class SiteSwap:
     """Class for representing vanilla site-swap juggling patterns."""
 
     @staticmethod
-    def validate_pattern(pattern):
+    def validate_pattern(pattern: Sequence[int]) -> int:
         if not pattern:
             raise InputError("Pattern has no throws.")
         if not all(map(lambda i: isinstance(i, int), pattern)):
@@ -213,8 +246,8 @@ class SiteSwap:
                 f"Pattern {pattern} uses fractional balls {num_balls}."
             )
         destinations = [False] * length
-        for index, height in enumerate(pattern):
-            destination = (index + height) % length
+        for idx, height in enumerate(pattern):
+            destination = (idx + height) % length
             if destinations[destination]:
                 raise InputError(f"Pattern {pattern} has a collision.")
             destinations[destination] = True
@@ -222,7 +255,7 @@ class SiteSwap:
         return int(num_balls)
 
     @staticmethod
-    def from_string(string_pattern, num_hands=2):
+    def from_string(string_pattern: str, num_hands: int = 2):
         """Produces a SiteSwap from a comma-separated list of natural numbers."""
         try:
             pattern = [int(i) for i in re.split(r"[ ,]+", string_pattern)]
@@ -230,10 +263,10 @@ class SiteSwap:
             raise InputError("Invalid pattern string") from error
         return SiteSwap(pattern, num_hands)
 
-    def pattern_string(self):
+    def pattern_string(self) -> str:
         return ", ".join(map(str, self.pattern))
 
-    def __init__(self, parsedPattern, num_hands=2):
+    def __init__(self, parsedPattern: List[int], num_hands: int = 2):
         self.num_balls = SiteSwap.validate_pattern(parsedPattern)
         self.pattern = parsedPattern
         self.num_hands = num_hands
@@ -244,21 +277,21 @@ class SiteSwap:
     class Iterator:
         """Class for running a pattern forever."""
 
-        def __init__(self, pattern):
+        def __init__(self, pattern: Sequence[int]):
             self.pattern = pattern
             self.next_throw = 0
 
-        def iterate(self):
+        def iterate(self) -> Generator[Throw, None, None]:
             while True:
-                index = self.next_throw
-                height = self.pattern[index]
+                idx = self.next_throw
+                height = self.pattern[idx]
                 self.next_throw = (self.next_throw + 1) % len(self.pattern)
-                yield Throw(index, height)
+                yield Throw(idx, height)
 
-    def iterator(self):
+    def iterator(self) -> Iterator:
         return self.Iterator(self.pattern)
 
-    def analyze(self):
+    def analyze(self) -> Analysis:
         """Computes the orbits for each ball in the pattern and other basic
         properties."""
         if len(self.pattern) % self.num_hands:
@@ -283,17 +316,17 @@ class SiteSwap:
         throws_seen = {
             ind for (ind, height) in enumerate(pattern) if not height
         }  # skip zeroes
-        index = 0
+        idx = 0
         pattern_length = len(pattern)
         orbits = []
         while balls_found < self.num_balls:
-            assert index < pattern_length
+            assert idx < pattern_length
             length = 0
             sequence = []
-            cur_index = index
+            cur_index = idx
             if cur_index not in throws_seen:
                 hand = cur_index % self.num_hands
-                while not length or cur_index != index:
+                while not length or cur_index != idx:
                     throws_seen.add(cur_index)
                     height = pattern[cur_index]
                     catch_hand = (hand + height) % self.num_hands
@@ -311,23 +344,33 @@ class SiteSwap:
                 ball_ids = list(
                     range(balls_found, balls_found + balls_in_cycle)
                 )
-                orbits.append(Orbit(ball_ids, index, sequence, length))
+                orbits.append(Orbit(ball_ids, idx, sequence, length))
                 balls_found += balls_in_cycle
-            index += 1
+            idx += 1
         return Analysis(
             self.pattern, self.num_hands, orbits, lcm(cycle_lengths)
         )
 
-    def animation(self):
+    def animation(self) -> Animation:
         return analysis_to_animation(self.analyze())
 
 
-def analysis_to_animation(analysis):
-    CarryEnd = namedtuple("CarryEnd", ("time", "position", "ball"))
-    CarryStart = namedtuple("CarryStart", ("time", "position", "ball"))
+def analysis_to_animation(analysis: Analysis) -> Animation:
+    class CarryRecord(NamedTuple):
+        time: int
+        position: np.ndarray
+        ball: int
+
+    class CarryStart(CarryRecord):
+        pass
+
+    class CarryEnd(CarryRecord):
+        pass
 
     _, num_hands, orbits, cycle_length = analysis
+    hands: Dict[int, List[CarryRecord]]
     hands = {hand: [] for hand in range(num_hands)}
+    ball_paths: Dict[int, List[Motion]]
     ball_paths = {}
     for orbit in orbits:
         ball_ids, start_index, sequence, length = orbit
@@ -335,8 +378,9 @@ def analysis_to_animation(analysis):
         assert int(length / balls_in_orbit) == length / balls_in_orbit
         offset_increment = int(length / balls_in_orbit)
         for ball in ball_ids:
+            ball_path: List[Motion]
             ball_path = []
-            index = start_index
+            idx = start_index
             for segment in sequence:
                 height, throw_hand, catch_hand = segment
                 duration = height - 1
@@ -353,10 +397,8 @@ def analysis_to_animation(analysis):
                 # clone each segment to fill cycle_length
                 for i in range(repeats):
                     clone_offset = i * length
-                    throw_time = (index + clone_offset) % cycle_length
-                    catch_time = (
-                        index + duration + clone_offset
-                    ) % cycle_length
+                    throw_time = (idx + clone_offset) % cycle_length
+                    catch_time = (idx + duration + clone_offset) % cycle_length
                     if duration:
                         ball_arc = Arc(
                             throw_time, duration, throw_pos, catch_pos
@@ -367,11 +409,13 @@ def analysis_to_animation(analysis):
                     carry_start = CarryStart(catch_time, catch_pos, ball)
                     hands[throw_hand].append(carry_end)
                     hands[catch_hand].append(carry_start)
-                index += height
+                idx += height
             ball_paths[ball] = ball_path
             start_index += offset_increment
+    hand_paths: Dict[int, List[Motion]]
     hand_paths = {}
     for hand, carry_parts in hands.items():
+        path: List[Motion]
         path = []
         assert not len(carry_parts) % 2
         carry_parts.sort(key=lambda p: p.time)
@@ -425,13 +469,13 @@ class TestValidatePattern(unittest.TestCase):
         iterator = SiteSwap([4, 4, 1]).iterator()
         throws1 = take(4, iterator.iterate())
         self.assertEqual(throws1[0].height, 4)
-        self.assertEqual(throws1[0].index, 0)
+        self.assertEqual(throws1[0].idx, 0)
         self.assertEqual(throws1[1].height, 4)
-        self.assertEqual(throws1[1].index, 1)
+        self.assertEqual(throws1[1].idx, 1)
         self.assertEqual(throws1[2].height, 1)
-        self.assertEqual(throws1[2].index, 2)
+        self.assertEqual(throws1[2].idx, 2)
         self.assertEqual(throws1[3].height, 4)
-        self.assertEqual(throws1[3].index, 0)
+        self.assertEqual(throws1[3].idx, 0)
 
     def test_animation(self):
         # Animations are quite complex to verify, so this just checks that we
