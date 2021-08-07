@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-from collections import namedtuple
 from functools import reduce
-from typing import Sequence, NewType, NamedTuple, Generator, List, Dict
+from typing import Sequence, NamedTuple, Generator, List, Dict
 import argparse
 import math
 import re
@@ -9,44 +8,55 @@ import sys
 import unittest
 
 from more_itertools import take
-import numpy as np # type: ignore
+import numpy as np  # type: ignore
 
 
 class InputError(Exception):
     pass
 
+
 class Throw(NamedTuple):
-  idx: int
-  height: int
+    idx: int
+    height: int
+
 
 class Segment(NamedTuple):
-  height: int
-  throw_hand: int
-  catch_hand: int
+    height: int
+    throw_hand: int
+    catch_hand: int
+
 
 class Orbit(NamedTuple):
-  ball_ids: Sequence[int]
-  start_index: int
-  sequence: Sequence[Segment]
-  length: int
+    ball_ids: Sequence[int]
+    start_index: int
+    sequence: Sequence[Segment]
+    length: int
+
 
 class Analysis(NamedTuple):
-  pattern: List[int]
-  num_hands: int
-  orbits: Sequence[Orbit]
-  cycle_length: int
+    pattern: List[int]
+    num_hands: int
+    orbits: Sequence[Orbit]
+    cycle_length: int
+
 
 class BoundingBox(NamedTuple):
-  minima: np.ndarray
-  maxima: np.ndarray
+    minima: np.ndarray
+    maxima: np.ndarray
+
 
 def lcm(numbers: Sequence[int]) -> int:
     return reduce(lambda a, b: a * b // math.gcd(a, b), numbers)
 
 
 class Motion:
-    def __init__(self, time: float, duration: float,
-                 start_pos: np.ndarray, end_pos: np.ndarray):
+    def __init__(
+        self,
+        time: float,
+        duration: float,
+        start_pos: np.ndarray,
+        end_pos: np.ndarray,
+    ):
         self.time = time
         self.duration = duration
         self.end_time = time + duration
@@ -152,8 +162,9 @@ def _simple_catch_pos(hand: int, num_hands: int) -> np.ndarray:
     )
 
 
-def _simple_handoff_pos(from_hand: int, to_hand: int,
-                        num_hands: int) -> np.ndarray:
+def _simple_handoff_pos(
+    from_hand: int, to_hand: int, num_hands: int
+) -> np.ndarray:
     return 0.5 * (
         _simple_throw_pos(from_hand, num_hands)
         + _simple_throw_pos(to_hand, num_hands)
@@ -162,11 +173,15 @@ def _simple_handoff_pos(from_hand: int, to_hand: int,
 
 class Animation:
     """The point of this object is to be able to answer the question, "Where is
-    ball/hand N at time T?"  Possibly we'll move this all to the SiteSwap
-    constructor, but maybe not."""
+    ball/hand N at time T?"  This could potentially be moved to the SiteSwap
+    constructor."""
 
-    def __init__(self, ball_paths: Dict[int, List[Motion]],
-                 hand_paths: Dict[int, List[Motion]], cycle_length: int):
+    def __init__(
+        self,
+        ball_paths: Dict[int, List[Motion]],
+        hand_paths: Dict[int, List[Motion]],
+        cycle_length: int,
+    ):
         self.ball_paths = ball_paths
         self.hand_paths = hand_paths
         self.cycle_length = cycle_length
@@ -240,7 +255,7 @@ class SiteSwap:
         return int(num_balls)
 
     @staticmethod
-    def from_string(string_pattern: str, num_hands: int = 2) -> SiteSwap:
+    def from_string(string_pattern: str, num_hands: int = 2):
         """Produces a SiteSwap from a comma-separated list of natural numbers."""
         try:
             pattern = [int(i) for i in re.split(r"[ ,]+", string_pattern)]
@@ -339,18 +354,19 @@ class SiteSwap:
     def animation(self) -> Animation:
         return analysis_to_animation(self.analyze())
 
-class CarryRecord(NamedTuple):
-  time: int
-  position: np.ndarray
-  ball: int
-
-class CarryStart(CarryRecord):
-  pass
-
-class CarryEnd(CarryRecord):
-  pass
 
 def analysis_to_animation(analysis: Analysis) -> Animation:
+    class CarryRecord(NamedTuple):
+        time: int
+        position: np.ndarray
+        ball: int
+
+    class CarryStart(CarryRecord):
+        pass
+
+    class CarryEnd(CarryRecord):
+        pass
+
     _, num_hands, orbits, cycle_length = analysis
     hands: Dict[int, List[CarryRecord]]
     hands = {hand: [] for hand in range(num_hands)}
@@ -382,9 +398,7 @@ def analysis_to_animation(analysis: Analysis) -> Animation:
                 for i in range(repeats):
                     clone_offset = i * length
                     throw_time = (idx + clone_offset) % cycle_length
-                    catch_time = (
-                        idx + duration + clone_offset
-                    ) % cycle_length
+                    catch_time = (idx + duration + clone_offset) % cycle_length
                     if duration:
                         ball_arc = Arc(
                             throw_time, duration, throw_pos, catch_pos
