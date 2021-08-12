@@ -290,7 +290,7 @@ class AppWindow(pyglet.window.Window):
         elif symbol == pyglet.window.key.Q:
             sys.exit()
 
-    async def field_over_matrix(self):
+    async def field_over_matrix(self) -> np.ndarray:
         field_info: Sequence[BallFieldInfo]
         field_info = list(
             filter(None, [shape.field_info() for shape in self.shapes])
@@ -317,7 +317,11 @@ class AppWindow(pyglet.window.Window):
         ]
         await asyncio.wait(futures, return_when=asyncio.FIRST_EXCEPTION)
         for i, future in enumerate(futures):
-            output[i] = future.result()
+            # Python 3.6 documents run_in_executor as returning awaitable *AND*
+            # as returning future.  It's returning future for me, but mypy
+            # thinks it's returning awaitable, and won't accept my attempts at
+            # appeasement.
+            output[i] = future.result()  # type: ignore
 
         return np.array(output)
 
@@ -371,7 +375,7 @@ class AppWindow(pyglet.window.Window):
         )
         return batch
 
-    def draw_progress_bar(self):
+    def draw_progress_bar(self) -> None:
         try:
             while True:
                 self.progress_queue.get_nowait()
@@ -408,7 +412,7 @@ class AppWindow(pyglet.window.Window):
                 ("c3B", 4 * (255, 64, 64)),
             )
 
-    def on_draw(self):
+    def on_draw(self) -> None:
 
         self.clear()
 
@@ -432,11 +436,11 @@ class AppWindow(pyglet.window.Window):
             self.voxels_to_draw.draw()
         self.draw_progress_bar()
 
-    def on_resize(self, width, height):
+    def on_resize(self, width: int, height: int) -> bool:
         gl.glViewport(0, 0, width, height)
         return pyglet.event.EVENT_HANDLED
 
-    def update(self, delta_t: float):
+    def update(self, delta_t: float) -> None:
         for shape in self.shapes:
             shape.update(delta_t / EXPECTED_FRAME_RATE)
 
