@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
-import numpy as np
+from typing import NamedTuple, List, Dict
+import numpy as np  # type: ignore
 
 # Note that this file is a very-direct port of some old WebGL code of mine; it
 # may still look a little JavaScripty.
 
 
-def make_tetrahedron_geometry():
+class Geometry(NamedTuple):
+    points: List[np.ndarray]
+    faces: List[int]
+    colors: List[int]
+
+
+def make_tetrahedron_geometry() -> Geometry:
     """This tetrahedron is centered at the origin, and its points are on the
     unit sphere."""
 
@@ -27,21 +34,22 @@ def make_tetrahedron_geometry():
     )
     points = [point0, point1, point2, point3]
     faces = [0, 1, 3, 0, 3, 2, 0, 2, 1, 1, 2, 3]
-    colors = [1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1]
-    return {"points": points, "faces": faces, "colors": colors}
+    colors = [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 0, 255, 255]
+    return Geometry(points, faces, colors)
 
 
-def make_sphere_geometry(n):
+def make_sphere_geometry(n: int) -> Geometry:
     """
     Starting with a tetrahedron, repeat n times:
     * Split each face into 4 triangles.
     * Push the new points out to the unit sphere.
     """
     assert n >= 0
+    midpoints: Dict[np.ndarray, np.ndarray]
     midpoints = {}
     shape = make_tetrahedron_geometry()
-    faces = shape["faces"]
-    points = shape["points"]
+    faces = shape.faces
+    points = shape.points
     for _ in range(n):
         new_faces = []
         # Split each face into 4.
@@ -61,15 +69,10 @@ def make_sphere_geometry(n):
             ])
             # fmt: on
         faces = new_faces
-    return {
-        "points": points,
-        "normals": points,
-        "faces": faces,
-        "colors": make_simple_colors(points),
-    }
+    return Geometry(points, faces, make_simple_colors(points))
 
 
-def get_midpoint(pi0, pi1, points, midpoints):
+def get_midpoint(pi0: np.ndarray, pi1: np.ndarray, points, midpoints) -> int:
     """This is the great-circle midpoint of two points on the unit sphere.
     It'll fail if they're diametrically opposed."""
 
@@ -100,7 +103,7 @@ def get_midpoint(pi0, pi1, points, midpoints):
     return index
 
 
-def make_simple_colors(points):
+def make_simple_colors(points) -> List[int]:
     colors = []
     for point in points:
         red = round(255 * abs(point[0]))
