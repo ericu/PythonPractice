@@ -44,6 +44,11 @@ class Player:
     def eat_food(self, how_much: int) -> None:
         self.add_length += how_much
 
+    def trim(self) -> List[int]:
+        coords = self.drawings[0]
+        self.drawings = self.drawings[1:]
+        return coords
+
 
 class SnakeGame:
     def __init__(self, window, height: int, width: int):
@@ -114,8 +119,7 @@ class SnakeGame:
         to_erase = self.player.set_coords(coords)
         self.draw_char(self.player.coords, "S")
         if to_erase:
-            y, x = to_erase
-            self.game_area.addch(y, x, " ")
+            self.draw_char(to_erase, " ")
 
     def move_player(self) -> None:
         (height, width) = self.game_area.getmaxyx()
@@ -160,6 +164,7 @@ class SnakeGame:
         self.set_status(
             f"You have gotten away with {len(self.player.drawings)} points.  Press 'q' to quit."
         )
+        self.draw_char(self.player.coords, "s")
         self.done = True
 
     def play(self) -> None:
@@ -185,10 +190,16 @@ class SnakeGame:
                     self.player.v = [d_y, d_x]
             current_time = time.time()
             try:
-                if not self.done and current_time >= next_draw:
+                if current_time >= next_draw:
                     next_draw = current_time + MOVE_PERIOD_SECONDS
-                    self.move_player()
-                    self.game_area.refresh()
+                    if not self.done:
+                        self.move_player()
+                        self.game_area.refresh()
+                    elif self.player.drawings:
+                        to_erase = self.player.trim()
+                        self.draw_char(to_erase, " ")
+                        self.game_area.refresh()
+
             except DeathException as err:
                 self.die(err.message)
             except WinException:
