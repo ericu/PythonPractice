@@ -79,12 +79,12 @@ class SnakeGame:
         return coords
 
     def place_door(self):
-        self.door_location = self.pick_clear_location()
-        self.draw_char(self.door_location, DOOR_CHAR)
+        door_location = self.pick_clear_location()
+        self.draw_char(door_location, DOOR_CHAR)
 
     def place_food(self):
-        self.food_location = self.pick_clear_location()
-        self.draw_char(self.food_location, FOOD_CHAR)
+        food_location = self.pick_clear_location()
+        self.draw_char(food_location, FOOD_CHAR)
 
     def place_poison(self):
         location = self.pick_clear_location()
