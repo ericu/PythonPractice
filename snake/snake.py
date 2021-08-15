@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
 import curses
+import time
+
+MOVE_PERIOD_SECONDS = 0.1
 
 class SnakeGame():
     def __init__(self, stdscr, height, width):
         curses.curs_set(0) # hide cursor
+        curses.halfdelay(1) # wait 0.1s for input each time
         self.stdscr = stdscr
         self.height = height
         self.width = width
@@ -17,6 +21,7 @@ class SnakeGame():
         self.game_height = height - 4 # space for borders and status
         self.game_area = curses.newwin(self.game_height, self.game_width, 3, 1)
         self.player_coords = [self.game_height // 2, self.game_width // 2]
+        self.player_v = [0, 1]
 
         self.set_status(f'coords {height} by {width} game {self.game_height} by {self.game_width}')
 
@@ -36,24 +41,36 @@ class SnakeGame():
     def play(self):
         self.draw_player()
         self.game_area.refresh()
+        next_draw = time.time() + MOVE_PERIOD_SECONDS
         while True:
-          p_y, p_x = self.player_coords
-          self.erase_player()
-          c = self.stdscr.getch()
-          if c == ord('h'):
-              p_x = max(0, p_x - 1)
-          elif c == ord('l'):
-              p_x = min(self.game_width - 1, p_x + 1)
-          elif c == ord('k'):
-              p_y = max(0, p_y - 1)
-          elif c == ord('j'):
-              p_y = min(self.game_height - 1, p_y + 1)
-          elif c == ord('q'):
-              break
-          self.player_coords = [p_y, p_x]
-          self.set_status(f'drawing player at {self.player_coords}')
-          self.draw_player()
-          self.game_area.refresh()
+            try:
+                c = self.stdscr.getch() # this waits up to 0.1 s for input
+                if c == ord('h'):
+                    self.player_v = [0, -1]
+                elif c == ord('l'):
+                    self.player_v = [0, 1]
+                elif c == ord('k'):
+                    self.player_v = [-1, 0]
+                elif c == ord('j'):
+                    self.player_v = [1, 0]
+                elif c == ord('q'):
+                    break
+            except:
+                pass
+            current_time = time.time()
+            if current_time >= next_draw:
+                next_draw = current_time + MOVE_PERIOD_SECONDS
+                self.erase_player()
+                p_y, p_x = self.player_coords
+                v_y, v_x = self.player_v
+                p_y += v_y
+                p_x += v_x
+                p_x = max(0, min(p_x, self.game_width - 1))
+                p_y = max(0, min(p_y, self.game_height - 1))
+                self.player_coords = [p_y, p_x]
+                self.set_status(f'drawing player at {self.player_coords}')
+                self.draw_player()
+                self.game_area.refresh()
 
     def draw_borders(self):
         self.stdscr.clear()
