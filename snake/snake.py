@@ -10,6 +10,7 @@ SLEEP_TIME = MOVE_PERIOD_SECONDS / 4
 FOOD_VALUE = 3
 FOOD_CHAR = "$"
 DOOR_CHAR = "#"
+POISON_CHAR = "\u2620"
 
 
 class DeathException(Exception):
@@ -35,6 +36,7 @@ class SnakeGame:
 
         self.status_bar = curses.newwin(1, width - 2, 1, 1)
 
+        self.poison_locations = {}
         self.game_width = width - 2  # space for borders
         self.game_height = height - 4  # space for borders and status
         self.game_area = curses.newwin(self.game_height, self.game_width, 3, 1)
@@ -45,6 +47,7 @@ class SnakeGame:
         self.draw_player(self.player_coords)
         self.place_food()
         self.place_door()
+        self.place_poison()
         self.game_area.refresh()
 
     def pick_clear_location(self):
@@ -54,7 +57,9 @@ class SnakeGame:
             return [y, x]
 
         coords = pick_location()
-        while (self.game_area.inch(coords[0], coords[1]) & 0xFF) != ord(" "):
+        while (str(coords) in self.poison_locations) or (
+            self.game_area.inch(coords[0], coords[1]) & 0xFF
+        ) != ord(" "):
             coords = pick_location()
         return coords
 
@@ -65,6 +70,11 @@ class SnakeGame:
     def place_food(self):
         self.food_location = self.pick_clear_location()
         self.draw_char(self.food_location, FOOD_CHAR)
+
+    def place_poison(self):
+        location = self.pick_clear_location()
+        self.poison_locations[str(location)] = True
+        self.draw_char(location, POISON_CHAR)
 
     def draw_char(self, coords, char):
         y, x = coords
@@ -99,7 +109,10 @@ class SnakeGame:
             or p_x > self.game_width - 1
             or p_y > self.game_height - 1
         ):
-            raise DeathException("You ran into a wall.  You have died.")
+            raise DeathException("You ran into a wall.")
+
+        if str([p_y, p_x]) in self.poison_locations:
+            raise DeathException("You ate the poison.")
 
         need_more_food = False
         hit_char = self.game_area.inch(p_y, p_x) & 0xFF
@@ -111,18 +124,19 @@ class SnakeGame:
         elif hit_char == ord(DOOR_CHAR):
             raise WinException()
         else:
-            raise DeathException("You bit yourself.  You have died.")
+            raise DeathException("You bit yourself.")
 
         self.draw_player([p_y, p_x])
         if need_more_food:
             self.place_food()
+            self.place_poison()
 
     def die(self, cause_of_death):
         for coords in self.player_drawings:
             self.draw_char(coords, "x")
         self.draw_char(self.player_coords, "X")
         self.game_area.refresh()
-        self.set_status(cause_of_death)
+        self.set_status(cause_of_death + "  You have died.")
         self.done = True
 
     def win(self):
