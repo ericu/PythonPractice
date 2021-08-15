@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 
 import curses
+import random
 import time
 
 MOVE_PERIOD_SECONDS = 1 / 20
 SLEEP_TIME = MOVE_PERIOD_SECONDS / 4
+
+FOOD_VALUE = 3
+FOOD_CHAR = '$'
+DOOR_CHAR = '#'
 
 class SnakeGame():
     def __init__(self, window, height, width):
@@ -28,7 +33,18 @@ class SnakeGame():
 
         self.set_status(f'coords {height} by {width} game {self.game_height} by {self.game_width}')
 
-    def draw_player_char(self, coords, char):
+    def place_food(self):
+        def pick_location():
+            y = random.randint(0, self.game_height - 1)
+            x = random.randint(0, self.game_width - 1)
+            return [y, x]
+        [f_y, f_x] = pick_location()
+        while (self.game_area.inch(f_y, f_x) & 0xff) != ord(' '):
+            [f_y, f_x] = pick_location()
+        self.food_location = [f_y, f_x]
+        self.draw_char(self.food_location, FOOD_CHAR)
+
+    def draw_char(self, coords, char):
         y, x = coords
         # Curses can't addch to the bottom-right corner without ERR.
         # https://stackoverflow.com/questions/36387625/curses-fails-when-calling-addch-on-the-bottom-right-corner
@@ -38,10 +54,10 @@ class SnakeGame():
           self.game_area.addch(y, x, char)
 
     def draw_player(self, coords):
-        self.draw_player_char(self.player_coords, 's')
+        self.draw_char(self.player_coords, 's')
         self.player_coords = coords
         self.player_drawings.append(self.player_coords)
-        self.draw_player_char(self.player_coords, 'S')
+        self.draw_char(self.player_coords, 'S')
         if self.player_add_length > 0:
             self.player_add_length -= 1
         else:
@@ -58,15 +74,24 @@ class SnakeGame():
             p_x > self.game_width - 1 or p_y > self.game_height - 1):
             raise RuntimeError('Implement border death.')
 
+        need_more_food = False
         hit_char = self.game_area.inch(p_y, p_x) & 0xff
-        if hit_char != ord(' '):
+        if hit_char == ord(' '):
+            pass
+        elif hit_char == ord(FOOD_CHAR):
+            self.player_add_length += FOOD_VALUE
+            need_more_food = True
+        else:
             raise RuntimeError(f'Hit something({hit_char}); implement death.')
 
         self.draw_player([p_y, p_x])
+        if need_more_food:
+            self.place_food()
         self.set_status(f'drawing player at {self.player_coords}')
 
     def play(self):
         self.draw_player(self.player_coords)
+        self.place_food()
         self.game_area.refresh()
         next_draw = time.time() + MOVE_PERIOD_SECONDS
         while True:
