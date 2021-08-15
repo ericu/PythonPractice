@@ -22,37 +22,51 @@ class SnakeGame():
         self.game_height = height - 4 # space for borders and status
         self.game_area = curses.newwin(self.game_height, self.game_width, 3, 1)
         self.player_coords = [self.game_height // 2, self.game_width // 2]
+        self.player_drawings = []
+        self.player_add_length = 5
         self.player_v = [0, 1]
 
         self.set_status(f'coords {height} by {width} game {self.game_height} by {self.game_width}')
 
-    def draw_player(self):
-        y, x = self.player_coords
+    def draw_player_char(self, coords, char):
+        y, x = coords
         # Curses can't addch to the bottom-right corner without ERR.
         # https://stackoverflow.com/questions/36387625/curses-fails-when-calling-addch-on-the-bottom-right-corner
         if y == self.game_height - 1 and x == self.game_width - 1:
-          self.game_area.insch(y, x, 'I')
+          self.game_area.insch(y, x, char)
         else:
-          self.game_area.addch(y, x, 'I')
+          self.game_area.addch(y, x, char)
 
-    def erase_player(self):
-        y, x = self.player_coords
-        self.game_area.delch(y, x)
+    def draw_player(self, coords):
+        self.draw_player_char(self.player_coords, 's')
+        self.player_coords = coords
+        self.player_drawings.append(self.player_coords)
+        self.draw_player_char(self.player_coords, 'S')
+        if self.player_add_length > 0:
+            self.player_add_length -= 1
+        else:
+            y, x = self.player_drawings[0]
+            self.player_drawings = self.player_drawings[1:]
+            self.game_area.addch(y, x, ' ')
 
     def move_player(self):
-        self.erase_player()
         p_y, p_x = self.player_coords
         v_y, v_x = self.player_v
         p_y += v_y
         p_x += v_x
-        p_x = max(0, min(p_x, self.game_width - 1))
-        p_y = max(0, min(p_y, self.game_height - 1))
-        self.player_coords = [p_y, p_x]
+        if (p_x < 0 or p_y < 0 or
+            p_x > self.game_width - 1 or p_y > self.game_height - 1):
+            raise RuntimeError('Implement border death.')
+
+        hit_char = self.game_area.inch(p_y, p_x) & 0xff
+        if hit_char != ord(' '):
+            raise RuntimeError(f'Hit something({hit_char}); implement death.')
+
+        self.draw_player([p_y, p_x])
         self.set_status(f'drawing player at {self.player_coords}')
-        self.draw_player()
 
     def play(self):
-        self.draw_player()
+        self.draw_player(self.player_coords)
         self.game_area.refresh()
         next_draw = time.time() + MOVE_PERIOD_SECONDS
         while True:
