@@ -39,6 +39,18 @@ class SnakeGame():
         y, x = self.player_coords
         self.game_area.delch(y, x)
 
+    def move_player(self):
+        self.erase_player()
+        p_y, p_x = self.player_coords
+        v_y, v_x = self.player_v
+        p_y += v_y
+        p_x += v_x
+        p_x = max(0, min(p_x, self.game_width - 1))
+        p_y = max(0, min(p_y, self.game_height - 1))
+        self.player_coords = [p_y, p_x]
+        self.set_status(f'drawing player at {self.player_coords}')
+        self.draw_player()
+
     def play(self):
         self.draw_player()
         self.game_area.refresh()
@@ -59,16 +71,7 @@ class SnakeGame():
             current_time = time.time()
             if current_time >= next_draw:
                 next_draw = current_time + MOVE_PERIOD_SECONDS
-                self.erase_player()
-                p_y, p_x = self.player_coords
-                v_y, v_x = self.player_v
-                p_y += v_y
-                p_x += v_x
-                p_x = max(0, min(p_x, self.game_width - 1))
-                p_y = max(0, min(p_y, self.game_height - 1))
-                self.player_coords = [p_y, p_x]
-                self.set_status(f'drawing player at {self.player_coords}')
-                self.draw_player()
+                self.move_player()
                 self.game_area.refresh()
 
     def draw_borders(self):
