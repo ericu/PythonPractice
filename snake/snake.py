@@ -55,7 +55,9 @@ class SnakeGame:
         self.draw_borders()
 
         self.status_bar = curses.newwin(1, width - 2, 1, 1)
-        self.set_status('Avoid poison \u2620, eat food $, go out door # to win. Steer with hjkl/arrows.')
+        self.set_status(
+            "Avoid poison \u2620, eat food $, go out door # to win. Steer with hjkl/arrows."
+        )
 
         self.poison_locations: Dict[str, bool]
         self.poison_locations = {}
@@ -149,7 +151,9 @@ class SnakeGame:
             self.draw_char(coords, "x")
         self.draw_char(self.player.coords, "X")
         self.game_area.refresh()
-        self.set_status(cause_of_death + "  You have died.  Press 'q' to quit.")
+        self.set_status(
+            cause_of_death + "  You have died.  Press 'q' to quit."
+        )
         self.done = True
 
     def win(self) -> None:
