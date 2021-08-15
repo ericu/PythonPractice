@@ -4,15 +4,22 @@ import curses
 import random
 import time
 
-MOVE_PERIOD_SECONDS = 1 / 20
+MOVE_PERIOD_SECONDS = 1 / 10
 SLEEP_TIME = MOVE_PERIOD_SECONDS / 4
 
 FOOD_VALUE = 3
 FOOD_CHAR = '$'
 DOOR_CHAR = '#'
 
+class DeathException(Exception):
+    def __init__(self, message):
+        super().__init__(self)
+        self.message = message
+
+
 class SnakeGame():
     def __init__(self, window, height, width):
+        self.dead = False
         curses.curs_set(0) # hide cursor
         self.window = window
         self.window.nodelay(True)
@@ -30,8 +37,6 @@ class SnakeGame():
         self.player_drawings = []
         self.player_add_length = 5
         self.player_v = [0, 1]
-
-        self.set_status(f'coords {height} by {width} game {self.game_height} by {self.game_width}')
 
     def place_food(self):
         def pick_location():
@@ -60,6 +65,7 @@ class SnakeGame():
         self.draw_char(self.player_coords, 'S')
         if self.player_add_length > 0:
             self.player_add_length -= 1
+            self.set_status(f'Current length: {len(self.player_drawings)}.')
         else:
             y, x = self.player_drawings[0]
             self.player_drawings = self.player_drawings[1:]
@@ -72,7 +78,7 @@ class SnakeGame():
         p_x += v_x
         if (p_x < 0 or p_y < 0 or
             p_x > self.game_width - 1 or p_y > self.game_height - 1):
-            raise RuntimeError('Implement border death.')
+            raise DeathException('You ran into a wall.  You have died.')
 
         need_more_food = False
         hit_char = self.game_area.inch(p_y, p_x) & 0xff
@@ -82,12 +88,19 @@ class SnakeGame():
             self.player_add_length += FOOD_VALUE
             need_more_food = True
         else:
-            raise RuntimeError(f'Hit something({hit_char}); implement death.')
+            raise DeathException('You bit yourself.  You have died.')
 
         self.draw_player([p_y, p_x])
         if need_more_food:
             self.place_food()
-        self.set_status(f'drawing player at {self.player_coords}')
+
+    def die(self, cause_of_death):
+        for coords in self.player_drawings:
+            self.draw_char(coords, 'x')
+        self.draw_char(self.player_coords, 'X')
+        self.game_area.refresh()
+        self.set_status(cause_of_death)
+        self.dead = True
 
     def play(self):
         self.draw_player(self.player_coords)
@@ -98,20 +111,27 @@ class SnakeGame():
             time.sleep(SLEEP_TIME)
             c = self.window.getch()
             if c == ord('h') or c == curses.KEY_LEFT:
-                self.player_v = [0, -1]
+                if (self.player_v != [0, 1]):
+                    self.player_v = [0, -1]
             elif c == ord('l') or c == curses.KEY_RIGHT:
-                self.player_v = [0, 1]
+                if (self.player_v != [0, -1]):
+                    self.player_v = [0, 1]
             elif c == ord('k') or c == curses.KEY_UP:
-                self.player_v = [-1, 0]
+                if (self.player_v != [1, 0]):
+                    self.player_v = [-1, 0]
             elif c == ord('j') or c == curses.KEY_DOWN:
-                self.player_v = [1, 0]
+                if (self.player_v != [-1, 0]):
+                    self.player_v = [1, 0]
             elif c == ord('q'):
                 break
             current_time = time.time()
-            if current_time >= next_draw:
-                next_draw = current_time + MOVE_PERIOD_SECONDS
-                self.move_player()
-                self.game_area.refresh()
+            try:
+                if not self.dead and current_time >= next_draw:
+                    next_draw = current_time + MOVE_PERIOD_SECONDS
+                    self.move_player()
+                    self.game_area.refresh()
+            except DeathException as de:
+                self.die(de.message)
 
     def draw_borders(self):
         self.window.clear()
