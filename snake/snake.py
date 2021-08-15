@@ -14,22 +14,24 @@ POISON_CHAR = "\u2620"
 
 
 class DeathException(Exception):
+    """Exception that signals that the player has died, and why."""
     def __init__(self, message):
         super().__init__(self)
         self.message = message
 
 
 class WinException(Exception):
-    pass
+    """Exception that signals that the player has won."""
 
 
 class Player:
+    """This object holds all about the player's location and score."""
     def __init__(self, coords: List[int], length: int):
         self.coords = coords
         self.drawings: List[List[int]]
         self.drawings = []
         self.add_length = length
-        self.v = [0, 1]
+        self.vector = [0, 1]
 
     def set_coords(self, coords: List[int]) -> Optional[List[int]]:
         self.drawings.append(coords)
@@ -51,6 +53,7 @@ class Player:
 
 
 class SnakeGame:
+    """This is a simple snake game modeled after various older games."""
     def __init__(self, window, height: int, width: int):
         self.done = False
         self.window = window
@@ -80,9 +83,9 @@ class SnakeGame:
         (height, width) = self.game_area.getmaxyx()
 
         def pick_location():
-            y = random.randint(0, height - 1)
-            x = random.randint(0, width - 1)
-            return [y, x]
+            row = random.randint(0, height - 1)
+            col = random.randint(0, width - 1)
+            return [row, col]
 
         coords = pick_location()
         while (str(coords) in self.poison_locations) or (
@@ -106,13 +109,13 @@ class SnakeGame:
 
     def draw_char(self, coords: List[int], char: str) -> None:
         (height, width) = self.game_area.getmaxyx()
-        y, x = coords
+        row, col = coords
         # Curses can't addch to the bottom right corner without ERR.
         # https://stackoverflow.com/questions/36387625/curses-fails-when-calling-addch-on-the-bottom-right-corner
-        if y == height - 1 and x == width - 1:
-            self.game_area.insch(y, x, char)
+        if row == height - 1 and col == width - 1:
+            self.game_area.insch(row, col, char)
         else:
-            self.game_area.addch(y, x, char)
+            self.game_area.addch(row, col, char)
 
     def draw_player(self, coords: List[int]) -> None:
         self.draw_char(self.player.coords, "s")
@@ -124,7 +127,7 @@ class SnakeGame:
     def move_player(self) -> None:
         (height, width) = self.game_area.getmaxyx()
         p_y, p_x = self.player.coords
-        v_y, v_x = self.player.v
+        v_y, v_x = self.player.vector
         p_y += v_y
         p_x += v_x
         if p_x < 0 or p_y < 0 or p_x > width - 1 or p_y > height - 1:
@@ -152,7 +155,7 @@ class SnakeGame:
 
     def die(self, cause_of_death: str) -> None:
         for coords in self.player.drawings:
-            self.draw_char(coords, "x")
+            self.draw_char(coords, "col")
         self.draw_char(self.player.coords, "X")
         self.game_area.refresh()
         self.set_status(
@@ -171,8 +174,8 @@ class SnakeGame:
         next_draw = time.time() + MOVE_PERIOD_SECONDS
         while True:
             time.sleep(SLEEP_TIME)
-            c = self.window.getch()
-            if c == ord("q"):
+            char = self.window.getch()
+            if char == ord("q"):
                 break
             map_directions = {
                 ord("h"): [0, -1],
@@ -184,10 +187,10 @@ class SnakeGame:
                 ord("j"): [1, 0],
                 curses.KEY_DOWN: [1, 0],
             }
-            if c in map_directions:
-                [d_y, d_x] = map_directions[c]
-                if self.player.v != [-d_y, -d_x]:
-                    self.player.v = [d_y, d_x]
+            if char in map_directions:
+                [d_y, d_x] = map_directions[char]
+                if self.player.vector != [-d_y, -d_x]:
+                    self.player.vector = [d_y, d_x]
             current_time = time.time()
             try:
                 if current_time >= next_draw:
