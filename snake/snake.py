@@ -7,7 +7,6 @@ import time
 
 MOVE_PERIOD_SECONDS = 1 / 10
 SLEEP_TIME = MOVE_PERIOD_SECONDS / 4
-
 FOOD_VALUE = 3
 FOOD_CHAR = "$"
 DOOR_CHAR = "#"
@@ -32,17 +31,18 @@ class Player:
         self.add_length = length
         self.v = [0, 1]
 
-    def set_coords(self, coords: List[int]) -> None:
+    def set_coords(self, coords: List[int]) -> Optional[List[int]]:
         self.drawings.append(coords)
         self.coords = coords
-
-    def trim(self) -> Optional[List[int]]:
         if self.add_length > 0:
             self.add_length -= 1
             return None
         coords = self.drawings[0]
         self.drawings = self.drawings[1:]
         return coords
+
+    def eat_food(self, how_much: int) -> None:
+        self.add_length += how_much
 
 
 class SnakeGame:
@@ -108,9 +108,8 @@ class SnakeGame:
 
     def draw_player(self, coords: List[int]) -> None:
         self.draw_char(self.player.coords, "s")
-        self.player.set_coords(coords)
+        to_erase = self.player.set_coords(coords)
         self.draw_char(self.player.coords, "S")
-        to_erase = self.player.trim()
         if not to_erase:
             self.set_status(f"Current length: {len(self.player.drawings)}")
         else:
@@ -134,7 +133,7 @@ class SnakeGame:
         if hit_char == ord(" "):
             pass
         elif hit_char == ord(FOOD_CHAR):
-            self.player.add_length += FOOD_VALUE
+            self.player.eat_food(FOOD_VALUE)
             need_more_food = True
         elif hit_char == ord(DOOR_CHAR):
             raise WinException()
