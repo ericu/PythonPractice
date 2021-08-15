@@ -7,10 +7,10 @@ MOVE_PERIOD_SECONDS = 1 / 20
 SLEEP_TIME = MOVE_PERIOD_SECONDS / 4
 
 class SnakeGame():
-    def __init__(self, stdscr, height, width):
+    def __init__(self, window, height, width):
         curses.curs_set(0) # hide cursor
-        self.stdscr = stdscr
-        self.stdscr.nodelay(True)
+        self.window = window
+        self.window.nodelay(True)
         self.height = height
         self.width = width
 
@@ -71,7 +71,7 @@ class SnakeGame():
         next_draw = time.time() + MOVE_PERIOD_SECONDS
         while True:
             time.sleep(SLEEP_TIME)
-            c = self.stdscr.getch()
+            c = self.window.getch()
             if c == ord('h') or c == curses.KEY_LEFT:
                 self.player_v = [0, -1]
             elif c == ord('l') or c == curses.KEY_RIGHT:
@@ -89,12 +89,12 @@ class SnakeGame():
                 self.game_area.refresh()
 
     def draw_borders(self):
-        self.stdscr.clear()
-        self.stdscr.border()
-        self.stdscr.hline(2, 1, curses.ACS_HLINE, self.width - 2)
-        self.stdscr.addch(2, 0, curses.ACS_LTEE)
-        self.stdscr.addch(2, self.width - 1, curses.ACS_RTEE)
-        self.stdscr.refresh()
+        self.window.clear()
+        self.window.border()
+        self.window.hline(2, 1, curses.ACS_HLINE, self.width - 2)
+        self.window.addch(2, 0, curses.ACS_LTEE)
+        self.window.addch(2, self.width - 1, curses.ACS_RTEE)
+        self.window.refresh()
 
     def set_status(self, status):
         self.status_bar.clear()
@@ -103,12 +103,12 @@ class SnakeGame():
         self.status_bar.addnstr(0, 1, status, self.width - 4, curses.A_REVERSE)
         self.status_bar.refresh()
 
-def main(stdscr):
-    (y_min, x_min) = stdscr.getbegyx()
-    (height, width) = stdscr.getmaxyx()
+def main(window):
+    (y_min, x_min) = window.getbegyx()
+    (height, width) = window.getmaxyx()
     if width < 20 or height < 15:
         raise RuntimeError(f'Sorry, your screen of {width} by {height} is too small')
-    game = SnakeGame(stdscr, height, width)
+    game = SnakeGame(window, height, width)
     game.play()
 
 
