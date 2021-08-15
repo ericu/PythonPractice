@@ -42,6 +42,7 @@ class Player:
         self.drawings = self.drawings[1:]
         return coords
 
+
 class SnakeGame:
     def __init__(self, window, height, width):
         self.done = False
@@ -66,6 +67,7 @@ class SnakeGame:
 
     def pick_clear_location(self):
         (height, width) = self.game_area.getmaxyx()
+
         def pick_location():
             y = random.randint(0, height - 1)
             x = random.randint(0, width - 1)
@@ -118,12 +120,7 @@ class SnakeGame:
         v_y, v_x = self.player.v
         p_y += v_y
         p_x += v_x
-        if (
-            p_x < 0
-            or p_y < 0
-            or p_x > width - 1
-            or p_y > height - 1
-        ):
+        if p_x < 0 or p_y < 0 or p_x > width - 1 or p_y > height - 1:
             raise DeathException("You ran into a wall.")
 
         if str([p_y, p_x]) in self.poison_locations:
