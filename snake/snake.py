@@ -155,7 +155,7 @@ class SnakeGame:
 
     def die(self, cause_of_death: str) -> None:
         for coords in self.player.drawings:
-            self.draw_char(coords, "col")
+            self.draw_char(coords, "x")
         self.draw_char(self.player.coords, "X")
         self.game_area.refresh()
         self.set_status(
@@ -172,6 +172,7 @@ class SnakeGame:
 
     def play(self) -> None:
         next_draw = time.time() + MOVE_PERIOD_SECONDS
+        last_move_vector = self.player.vector
         while True:
             time.sleep(SLEEP_TIME)
             char = self.window.getch()
@@ -189,13 +190,17 @@ class SnakeGame:
             }
             if char in map_directions:
                 [d_y, d_x] = map_directions[char]
-                if self.player.vector != [-d_y, -d_x]:
+                # Don't let the user accidentally turn right back at themselves.
+                # Cache last_move_vector rather than using self.player.vector in
+                # case they hit multiple keys before the snake actually moves.
+                if last_move_vector != [-d_y, -d_x]:
                     self.player.vector = [d_y, d_x]
             current_time = time.time()
             try:
                 if current_time >= next_draw:
                     next_draw = current_time + MOVE_PERIOD_SECONDS
                     if not self.done:
+                        last_move_vector = self.player.vector
                         self.move_player()
                         self.game_area.refresh()
                     elif self.player.drawings:
