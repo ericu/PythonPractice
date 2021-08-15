@@ -72,13 +72,13 @@ class SnakeGame():
         while True:
             time.sleep(SLEEP_TIME)
             c = self.stdscr.getch()
-            if c == ord('h'):
+            if c == ord('h') or c == curses.KEY_LEFT:
                 self.player_v = [0, -1]
-            elif c == ord('l'):
+            elif c == ord('l') or c == curses.KEY_RIGHT:
                 self.player_v = [0, 1]
-            elif c == ord('k'):
+            elif c == ord('k') or c == curses.KEY_UP:
                 self.player_v = [-1, 0]
-            elif c == ord('j'):
+            elif c == ord('j') or c == curses.KEY_DOWN:
                 self.player_v = [1, 0]
             elif c == ord('q'):
                 break
