@@ -16,10 +16,12 @@ class DeathException(Exception):
         super().__init__(self)
         self.message = message
 
+class WinException(Exception):
+    pass
 
 class SnakeGame():
     def __init__(self, window, height, width):
-        self.dead = False
+        self.done = False
         curses.curs_set(0) # hide cursor
         self.window = window
         self.window.nodelay(True)
@@ -38,15 +40,22 @@ class SnakeGame():
         self.player_add_length = 5
         self.player_v = [0, 1]
 
-    def place_food(self):
+    def pick_clear_location(self):
         def pick_location():
             y = random.randint(0, self.game_height - 1)
             x = random.randint(0, self.game_width - 1)
             return [y, x]
-        [f_y, f_x] = pick_location()
-        while (self.game_area.inch(f_y, f_x) & 0xff) != ord(' '):
-            [f_y, f_x] = pick_location()
-        self.food_location = [f_y, f_x]
+        coords = pick_location()
+        while (self.game_area.inch(coords[0], coords[1]) & 0xff) != ord(' '):
+            coords = pick_location()
+        return coords
+
+    def place_door(self):
+        self.door_location = self.pick_clear_location()
+        self.draw_char(self.door_location, DOOR_CHAR)
+
+    def place_food(self):
+        self.food_location = self.pick_clear_location()
         self.draw_char(self.food_location, FOOD_CHAR)
 
     def draw_char(self, coords, char):
@@ -65,7 +74,7 @@ class SnakeGame():
         self.draw_char(self.player_coords, 'S')
         if self.player_add_length > 0:
             self.player_add_length -= 1
-            self.set_status(f'Current length: {len(self.player_drawings)}.')
+            self.set_status(f'Current length: {len(self.player_drawings)}')
         else:
             y, x = self.player_drawings[0]
             self.player_drawings = self.player_drawings[1:]
@@ -87,6 +96,8 @@ class SnakeGame():
         elif hit_char == ord(FOOD_CHAR):
             self.player_add_length += FOOD_VALUE
             need_more_food = True
+        elif hit_char == ord(DOOR_CHAR):
+            raise WinException()
         else:
             raise DeathException('You bit yourself.  You have died.')
 
@@ -100,11 +111,18 @@ class SnakeGame():
         self.draw_char(self.player_coords, 'X')
         self.game_area.refresh()
         self.set_status(cause_of_death)
-        self.dead = True
+        self.done = True
+
+    def win(self):
+        self.set_status(f'You have won, with {len(self.player_drawings)} points.')
+        self.game_area.clear()
+        self.game_area.refresh()
+        self.done = True
 
     def play(self):
         self.draw_player(self.player_coords)
         self.place_food()
+        self.place_door()
         self.game_area.refresh()
         next_draw = time.time() + MOVE_PERIOD_SECONDS
         while True:
@@ -126,12 +144,14 @@ class SnakeGame():
                 break
             current_time = time.time()
             try:
-                if not self.dead and current_time >= next_draw:
+                if not self.done and current_time >= next_draw:
                     next_draw = current_time + MOVE_PERIOD_SECONDS
                     self.move_player()
                     self.game_area.refresh()
             except DeathException as de:
                 self.die(de.message)
+            except WinException:
+                self.win()
 
     def draw_borders(self):
         self.window.clear()
