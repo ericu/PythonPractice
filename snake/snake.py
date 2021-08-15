@@ -23,13 +23,30 @@ class WinException(Exception):
     pass
 
 
+class Player:
+    def __init__(self, coords, length):
+        self.coords = coords
+        self.drawings = []
+        self.add_length = length
+        self.v = [0, 1]
+
+    def set_coords(self, coords):
+        self.drawings.append(coords)
+        self.coords = coords
+
+    def trim(self):
+        if self.add_length > 0:
+            self.add_length -= 1
+            return None
+        coords = self.drawings[0]
+        self.drawings = self.drawings[1:]
+        return coords
+
 class SnakeGame:
     def __init__(self, window, height, width):
         self.done = False
-        curses.curs_set(0)  # hide cursor
         self.window = window
         self.window.nodelay(True)
-        self.height = height
         self.width = width
 
         self.draw_borders()
@@ -37,23 +54,21 @@ class SnakeGame:
         self.status_bar = curses.newwin(1, width - 2, 1, 1)
 
         self.poison_locations = {}
-        self.game_width = width - 2  # space for borders
-        self.game_height = height - 4  # space for borders and status
-        self.game_area = curses.newwin(self.game_height, self.game_width, 3, 1)
-        self.player_coords = [self.game_height // 2, self.game_width // 2]
-        self.player_drawings = []
-        self.player_add_length = 5
-        self.player_v = [0, 1]
-        self.draw_player(self.player_coords)
+        game_width = width - 2  # space for borders
+        game_height = height - 4  # space for borders and status
+        self.game_area = curses.newwin(game_height, game_width, 3, 1)
+        self.player = Player([game_height // 2, game_width // 2], 5)
+        self.draw_player(self.player.coords)
         self.place_food()
         self.place_door()
         self.place_poison()
         self.game_area.refresh()
 
     def pick_clear_location(self):
+        (height, width) = self.game_area.getmaxyx()
         def pick_location():
-            y = random.randint(0, self.game_height - 1)
-            x = random.randint(0, self.game_width - 1)
+            y = random.randint(0, height - 1)
+            x = random.randint(0, width - 1)
             return [y, x]
 
         coords = pick_location()
@@ -77,37 +92,37 @@ class SnakeGame:
         self.draw_char(location, POISON_CHAR)
 
     def draw_char(self, coords, char):
+        (height, width) = self.game_area.getmaxyx()
         y, x = coords
         # Curses can't addch to the bottom-right corner without ERR.
         # https://stackoverflow.com/questions/36387625/curses-fails-when-calling-addch-on-the-bottom-right-corner
-        if y == self.game_height - 1 and x == self.game_width - 1:
+        if y == height - 1 and x == width - 1:
             self.game_area.insch(y, x, char)
         else:
             self.game_area.addch(y, x, char)
 
     def draw_player(self, coords):
-        self.draw_char(self.player_coords, "s")
-        self.player_coords = coords
-        self.player_drawings.append(self.player_coords)
-        self.draw_char(self.player_coords, "S")
-        if self.player_add_length > 0:
-            self.player_add_length -= 1
-            self.set_status(f"Current length: {len(self.player_drawings)}")
+        self.draw_char(self.player.coords, "s")
+        self.player.set_coords(coords)
+        self.draw_char(self.player.coords, "S")
+        to_erase = self.player.trim()
+        if not to_erase:
+            self.set_status(f"Current length: {len(self.player.drawings)}")
         else:
-            y, x = self.player_drawings[0]
-            self.player_drawings = self.player_drawings[1:]
+            y, x = to_erase
             self.game_area.addch(y, x, " ")
 
     def move_player(self):
-        p_y, p_x = self.player_coords
-        v_y, v_x = self.player_v
+        (height, width) = self.game_area.getmaxyx()
+        p_y, p_x = self.player.coords
+        v_y, v_x = self.player.v
         p_y += v_y
         p_x += v_x
         if (
             p_x < 0
             or p_y < 0
-            or p_x > self.game_width - 1
-            or p_y > self.game_height - 1
+            or p_x > width - 1
+            or p_y > height - 1
         ):
             raise DeathException("You ran into a wall.")
 
@@ -119,7 +134,7 @@ class SnakeGame:
         if hit_char == ord(" "):
             pass
         elif hit_char == ord(FOOD_CHAR):
-            self.player_add_length += FOOD_VALUE
+            self.player.add_length += FOOD_VALUE
             need_more_food = True
         elif hit_char == ord(DOOR_CHAR):
             raise WinException()
@@ -132,19 +147,17 @@ class SnakeGame:
             self.place_poison()
 
     def die(self, cause_of_death):
-        for coords in self.player_drawings:
+        for coords in self.player.drawings:
             self.draw_char(coords, "x")
-        self.draw_char(self.player_coords, "X")
+        self.draw_char(self.player.coords, "X")
         self.game_area.refresh()
         self.set_status(cause_of_death + "  You have died.")
         self.done = True
 
     def win(self):
         self.set_status(
-            f"You have gotten away with {len(self.player_drawings)} points."
+            f"You have gotten away with {len(self.player.drawings)} points."
         )
-        self.game_area.clear()
-        self.game_area.refresh()
         self.done = True
 
     def play(self):
@@ -166,8 +179,8 @@ class SnakeGame:
             }
             if c in map_directions:
                 [d_y, d_x] = map_directions[c]
-                if self.player_v != [-d_y, -d_x]:
-                    self.player_v = [d_y, d_x]
+                if self.player.v != [-d_y, -d_x]:
+                    self.player.v = [d_y, d_x]
             current_time = time.time()
             try:
                 if not self.done and current_time >= next_draw:
@@ -201,6 +214,7 @@ def main(window):
         raise RuntimeError(
             f"Sorry, your screen of {width} by {height} is too small"
         )
+    curses.curs_set(0)  # hide cursor
     game = SnakeGame(window, height, width)
     game.play()
 
