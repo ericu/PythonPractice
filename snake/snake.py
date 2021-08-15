@@ -15,6 +15,7 @@ POISON_CHAR = "\u2620"
 
 class DeathException(Exception):
     """Exception that signals that the player has died, and why."""
+
     def __init__(self, message):
         super().__init__(self)
         self.message = message
@@ -26,6 +27,7 @@ class WinException(Exception):
 
 class Player:
     """This object holds all about the player's location and score."""
+
     def __init__(self, coords: List[int], length: int):
         self.coords = coords
         self.drawings: List[List[int]]
@@ -54,6 +56,7 @@ class Player:
 
 class SnakeGame:
     """This is a simple snake game modeled after various older games."""
+
     def __init__(self, window, height: int, width: int):
         self.done = False
         self.window = window
