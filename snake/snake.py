@@ -3,13 +3,14 @@
 import curses
 import time
 
-MOVE_PERIOD_SECONDS = 0.1
+MOVE_PERIOD_SECONDS = 1 / 20
+SLEEP_TIME = MOVE_PERIOD_SECONDS / 4
 
 class SnakeGame():
     def __init__(self, stdscr, height, width):
         curses.curs_set(0) # hide cursor
-        curses.halfdelay(1) # wait 0.1s for input each time
         self.stdscr = stdscr
+        self.stdscr.nodelay(True)
         self.height = height
         self.width = width
 
@@ -43,20 +44,18 @@ class SnakeGame():
         self.game_area.refresh()
         next_draw = time.time() + MOVE_PERIOD_SECONDS
         while True:
-            try:
-                c = self.stdscr.getch() # this waits up to 0.1 s for input
-                if c == ord('h'):
-                    self.player_v = [0, -1]
-                elif c == ord('l'):
-                    self.player_v = [0, 1]
-                elif c == ord('k'):
-                    self.player_v = [-1, 0]
-                elif c == ord('j'):
-                    self.player_v = [1, 0]
-                elif c == ord('q'):
-                    break
-            except:
-                pass
+            time.sleep(SLEEP_TIME)
+            c = self.stdscr.getch()
+            if c == ord('h'):
+                self.player_v = [0, -1]
+            elif c == ord('l'):
+                self.player_v = [0, 1]
+            elif c == ord('k'):
+                self.player_v = [-1, 0]
+            elif c == ord('j'):
+                self.player_v = [1, 0]
+            elif c == ord('q'):
+                break
             current_time = time.time()
             if current_time >= next_draw:
                 next_draw = current_time + MOVE_PERIOD_SECONDS
